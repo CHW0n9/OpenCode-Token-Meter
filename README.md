@@ -1,5 +1,9 @@
-# OpenCode Token Meter
-
+<h1 align="center">OpenCode Token Meter</h1>
+<p align="center">
+  <a href="https://github.com/CHW0n9/OpenCode-Token_Meter/releases">
+    <img src="assets/logo.png" alt="Project Logo" width="128">
+  </a>
+</p>
 
 **OpenCode Token Meter** is a lightweight macOS menubar application that tracks model token usage from [OpenCode](https://opencode.ai). It monitors message history, calculates costs for different AI models, and provides detailed usage statistics with an intuitive interface.
 
@@ -333,13 +337,17 @@ Developed entirely with [OpenCode](https://opencode.ai) - an AI-powered terminal
 
 ## Screenshots
 
-[SCREENSHOTS PLACEHOLDER]
-
-*Add screenshots here:*
 - Menubar display with token metrics
+
+<img src="assets/Screenshot_menubar.png" width="25%" alt="Menubar">
+
 - Main window with detailed statistics
+  
+<img src="assets/Screenshot_details.png" width="50%" alt="Details">
+
 - Settings dialog with model selection
-- Custom range export dialog
+
+<img src="assets/Screenshot_settings.png" width="50%" alt="Settings">
 
 ---
 
