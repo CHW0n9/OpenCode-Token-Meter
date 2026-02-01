@@ -1,6 +1,6 @@
 <h1 align="center">OpenCode Token Meter</h1>
 <p align="center">
-  <a href="https://github.com/CHW0n9/OpenCode-Token_Meter/releases">
+  <a href="https://github.com/CHW0n9/OpenCode-Token-Meter/releases">
     <img src="assets/logo.png" alt="Project Logo" width="128">
   </a>
 </p>
