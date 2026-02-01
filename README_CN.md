@@ -1,9 +1,13 @@
-# OpenCode Token 计量器
+<h1 align="center">OpenCode Token 计量器</h1>
+<p align="center">
+  <a href="https://github.com/CHW0n9/OpenCode-Token_Meter/releases">
+    <img src="assets/logo.png" alt="Project Logo" width="128">
+  </a>
+</p>
 
+**OpenCode Token 计量器**是一个轻量级的 macOS 菜单栏应用程序，可追踪来自 [OpenCode](https://opencode.ai) 的模型 Token 使用情况。它扫描消息历史、计算不同 AI 模型的成本，并提供具有直观界面的详细使用统计。
 
-**OpenCode Token 计量器**是一个轻量级的 macOS 菜单栏应用程序，可追踪来自 [OpenCode](https://opencode.ai) 的模型 Token 使用情况。它监控消息历史、计算不同 AI 模型的成本，并提供具有直观界面的详细使用统计。
-
-**注**：本项目完全使用 [OpenCode](https://opencode.ai) 开发。且该项目不是 OpenCode 团队官方开发，且不存在隶属关系。
+**注**：本项目完全使用 [OpenCode](https://opencode.ai) 开发。且本项目不是 OpenCode 团队官方开发，且不存在隶属关系。
 
 ---
 
@@ -333,13 +337,17 @@ python3 -m menubar
 
 ## 截图
 
-[截图占位符]
-
-*在此添加截图：*
 - 菜单栏显示 Token 指标
+
+<img src="assets/Screenshot_menubar.png" width="25%" alt="Menubar">
+
 - 具有详细统计的主窗口
+
+<img src="assets/Screenshot_details.png" width="50%" alt="Details">
+
 - 带有模型选择的设置对话框
-- 自定义范围导出对话框
+
+<img src="assets/Screenshot_settings.png" width="50%" alt="Settings">
 
 ---
 
