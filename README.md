@@ -24,7 +24,7 @@
 
 ### Option 1: DMG Installer (Recommended)
 
-1. Download `OpenCodeTokenMeter-1.0.0.dmg` from the [GitHub Releases](https://github.com/chwong/opencode-token-meter/releases)
+1. Download `OpenCodeTokenMeter-1.0.0.dmg` from the [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases)
 2. Double-click the `.dmg` file to open it
 3. Drag "OpenCode Token Meter.app" to the Applications folder
 4. Open Applications folder and double-click "OpenCode Token Meter.app"
@@ -56,7 +56,7 @@ xattr -d com.apple.quarantine "/Applications/OpenCode Token Meter.app"
 
 ```bash
 # Clone repository
-git clone https://github.com/chwong/opencode-token-meter.git
+git clone https://github.com/chw0n9/opencode-token-meter.git
 cd opencode-token-meter
 
 # Build the app
@@ -175,7 +175,7 @@ Click the menubar icon to open the main window with:
 ### Settings
 
 **Cost Meter Tab:**
-- Select from preset models (OpenAI, Anthropic, DeepSeek, etc.)
+- Select from preset models (Google, etc.)
 - Or select "Custom model" to enter provider/model name manually
 - View and adjust pricing for each model
 
@@ -197,11 +197,10 @@ Click the menubar icon to open the main window with:
 
 ### Model Pricing
 
-The app includes default pricing for popular models:
-- **OpenAI**: GPT-4, GPT-4o, GPT-3.5-turbo (token per 1K rates)
-- **Anthropic**: Claude 3 models
-- **DeepSeek**: DeepSeek Chat, R1
-- **Ollama**: Local models (free)
+The app includes default pricing for popular providers:
+- **Google**: Gemini 3 models
+- **OpenCode Zen**: GLM 4.7
+- **Github Copilot**: Claude Sonnet 4.5, GPT 5.2 Codex (Charged by premium requests)
 - **Other**: Any custom provider/model
 
 You can add custom models in Settings → Cost Meter → "Custom model"
@@ -271,7 +270,7 @@ Please report issues with:
 
 ```bash
 # Clone and navigate
-git clone https://github.com/chwong/opencode-token-meter.git
+git clone https://github.com/chw0n9/opencode-token-meter.git
 cd opencode-token-meter
 
 # Read developer guide
@@ -346,8 +345,8 @@ Developed entirely with [OpenCode](https://opencode.ai) - an AI-powered terminal
 
 ## Support & Feedback
 
-- Report bugs: [GitHub Issues](https://github.com/chwong/opencode-token-meter/issues)
-- Feature requests: [GitHub Discussions](https://github.com/chwong/opencode-token-meter/discussions)
+- Report bugs: [GitHub Issues](https://github.com/chw0n9/opencode-token-meter/issues)
+- Feature requests: [GitHub Discussions](https://github.com/chw0n9/opencode-token-meter/discussions)
 
 ---
 
