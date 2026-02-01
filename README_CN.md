@@ -3,7 +3,7 @@
 
 **OpenCode Token 计量器**是一个轻量级的 macOS 菜单栏应用程序，可追踪来自 [OpenCode](https://opencode.ai) 的模型 Token 使用情况。它监控消息历史、计算不同 AI 模型的成本，并提供具有直观界面的详细使用统计。
 
-**注**：本项目完全使用 [OpenCode](https://opencode.ai) 开发。
+**注**：本项目完全使用 [OpenCode](https://opencode.ai) 开发。且该项目不是 OpenCode 团队官方开发，且不存在隶属关系。
 
 ---
 
