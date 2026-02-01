@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencode-token-menubar"
+version = "1.0.0"
+description = "macOS menubar app for OpenCode Token Meter"
+requires-python = ">=3.8"
+dependencies = [
+    "rumps>=0.4.0",
+]
+
+[project.scripts]
+opencode-menubar = "menubar.__main__:main"

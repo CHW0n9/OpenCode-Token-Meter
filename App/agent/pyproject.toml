@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencode-token-agent"
+version = "1.0.0"
+description = "Background agent for OpenCode Token Meter"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+opencode-agent = "agent.__main__:main"
+opencode-agentctl = "agent.cli:main"
