@@ -3,7 +3,7 @@
 
 **OpenCode Token Meter** is a lightweight macOS menubar application that tracks model token usage from [OpenCode](https://opencode.ai). It monitors message history, calculates costs for different AI models, and provides detailed usage statistics with an intuitive interface.
 
-**Note**: This project was developed entirely using [OpenCode](https://opencode.ai).
+**Note**: This project was developed entirely using [OpenCode](https://opencode.ai). This project is not built by the OpenCode team and is not affiliated with them in any way.
 
 ---
 
