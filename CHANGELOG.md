@@ -116,27 +116,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Code style: Black (88 char), isort, flake8
 - Testing infrastructure not yet added (see AGENTS.md for suggestions)
 
-### Future Roadmap
-- [ ] Code signing for macOS distribution
-- [ ] Export to CSV/Excel formats
-- [ ] Historical trend graphs
-- [ ] Multi-user support
-- [ ] Cloud sync options
-- [ ] Unit tests (suggested in AGENTS.md)
-- [ ] Dark mode support
-- [ ] Keyboard shortcuts
-
----
-
-## [Unreleased]
-
-### Planned Features
-- Percentage-based thresholds
-- Advanced filtering by model/provider
-- Batch operations for data management
-- Settings import/export
-- Performance optimizations for large message volumes
-
 ---
 
 ## Version Strategy
