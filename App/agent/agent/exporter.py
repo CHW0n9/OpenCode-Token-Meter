@@ -55,6 +55,11 @@ def export_csv_range(out_path, start_ts, end_ts):
     Export messages for custom time range to CSV file.
     Returns the output path.
     """
+    print(f"[DEBUG] exporter.export_csv_range: out_path={out_path}")
+    # Normalize path for Windows
+    out_path = os.path.normpath(out_path)
+    print(f"[DEBUG] exporter.export_csv_range normalized: {out_path}")
+
     # If out_path is a directory, create a filename
     if os.path.isdir(out_path):
         filename = f"opencode_tokens_range_{int(time.time())}.csv"
@@ -65,29 +70,35 @@ def export_csv_range(out_path, start_ts, end_ts):
     
     # Get messages from database for custom range
     rows = get_all_messages_range(start_ts, end_ts)
+    print(f"[DEBUG] exporter.export_csv_range found {len(rows)} rows")
     
     # Write CSV
-    with open(out_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            'session_id', 'msg_id', 'ts_iso', 'role',
-            'input', 'output', 'reasoning',
-            'cache_read', 'cache_write', 
-            'model', 'provider_id', 'model_id'
-        ])
-
-        for row in rows:
-            session_id, msg_id, ts, input_tok, output_tok, reasoning_tok, cache_r, cache_w = row[:8]
-            ts_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(ts))
-            model = row[8] if len(row) > 8 else ''
-            provider_id = row[9] if len(row) > 9 else ''
-            model_id = row[10] if len(row) > 10 else ''
-            role = row[11] if len(row) > 11 else ''
+    try:
+        with open(out_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
             writer.writerow([
-                session_id, msg_id, ts_iso, role,
-                input_tok, output_tok, reasoning_tok,
-                cache_r, cache_w,
-                model, provider_id, model_id
+                'session_id', 'msg_id', 'ts_iso', 'role',
+                'input', 'output', 'reasoning',
+                'cache_read', 'cache_write', 
+                'model', 'provider_id', 'model_id'
             ])
+
+            for row in rows:
+                session_id, msg_id, ts, input_tok, output_tok, reasoning_tok, cache_r, cache_w = row[:8]
+                ts_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(ts))
+                model = row[8] if len(row) > 8 else ''
+                provider_id = row[9] if len(row) > 9 else ''
+                model_id = row[10] if len(row) > 10 else ''
+                role = row[11] if len(row) > 11 else ''
+                writer.writerow([
+                    session_id, msg_id, ts_iso, role,
+                    input_tok, output_tok, reasoning_tok,
+                    cache_r, cache_w,
+                    model, provider_id, model_id
+                ])
+        print(f"[DEBUG] exporter.export_csv_range finished writing: {out_path}")
+    except Exception as e:
+        print(f"[DEBUG] exporter.export_csv_range write error: {e}")
+        raise
     
     return out_path

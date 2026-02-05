@@ -609,3 +609,51 @@ def aggregate_by_model(scope):
     conn.close()
     return result
 
+
+def aggregate_by_model_range(start_ts, end_ts):
+    """
+    Aggregate token stats grouped by provider_id and model_id for a custom time range.
+    Returns dict[provider_id, dict[model_id, stats_dict]]
+    Uses deduplication to avoid counting duplicate messages across sessions.
+    """
+    conn = get_conn()
+    c = conn.cursor()
+    
+    # Build WHERE clause for time range
+    where_filter = f"ts >= {start_ts} AND ts < {end_ts}"
+    
+    # Use deduplicated subquery and aggregate by provider and model
+    subquery = _get_deduplicated_messages_subquery(where_filter)
+    token_filter = "(input > 0 OR output > 0 OR reasoning > 0 OR cache_read > 0 OR cache_write > 0)"
+    c.execute(f"""
+    SELECT provider_id, model_id,
+           SUM(input), SUM(output), SUM(reasoning),
+           SUM(cache_read), SUM(cache_write),
+           COUNT(CASE WHEN role='assistant' AND {token_filter} THEN 1 END) as messages,
+           COUNT(CASE WHEN role='user' THEN 1 END) as requests
+    FROM {subquery}
+    GROUP BY provider_id, model_id
+    """)
+    
+    result = {}
+    for row in c.fetchall():
+        provider_id = row[0] or 'unknown'
+        model_id = row[1] or 'unknown'
+        
+        if provider_id not in result:
+            result[provider_id] = {}
+        
+        result[provider_id][model_id] = {
+            'input': row[2] or 0,
+            'output': row[3] or 0,
+            'reasoning': row[4] or 0,
+            'cache_read': row[5] or 0,
+            'cache_write': row[6] or 0,
+            'messages': row[7] or 0,
+            'requests': row[8] or 0
+        }
+    
+    conn.close()
+    return result
+
+

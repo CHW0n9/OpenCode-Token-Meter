@@ -5,14 +5,26 @@ import socket
 import json
 import sys
 import argparse
-from agent.config import SOCKET_PATH
+from agent.config import USE_TCP, SOCKET_PATH, TCP_HOST, TCP_PORT
 
 def send_request(req, timeout=10):
     """Send a request to the agent and return the response"""
     try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(timeout)
-        s.connect(SOCKET_PATH)
+        if USE_TCP:
+            # TCP connection for Windows
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            s.connect((TCP_HOST, TCP_PORT))
+        else:
+            # Unix Domain Socket for macOS/Linux
+            # Guard AF_UNIX for Windows environment
+            af_unix = getattr(socket, "AF_UNIX", None)
+            if af_unix is None:
+                return {"ok": False, "err": "AF_UNIX not supported on this platform"}
+            s = socket.socket(af_unix, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            s.connect(SOCKET_PATH)
+            
         s.sendall((json.dumps(req) + "\n").encode())
         
         # Read response
