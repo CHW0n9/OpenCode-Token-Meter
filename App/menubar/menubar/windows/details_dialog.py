@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                                 QTableWidgetItem, QPushButton, QLabel, QMessageBox, 
                                 QFileDialog, QWidget)
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtGui import QIcon, QFont, QCloseEvent
 from menubar.utils.ui_helpers import get_icon_path
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ class DetailsDialog(QDialog):
         self.setMinimumWidth(800)
         self.setMinimumHeight(400)
         
-        # Standard window behavior
+        # Standard window behavior (no permanent stay-on-top)
         self.setWindowFlags(Qt.WindowType.Window)
         self.setModal(False)
         
@@ -84,14 +84,11 @@ class DetailsDialog(QDialog):
         button_layout = QHBoxLayout()
         
         export_button = QPushButton("Export CSV")
+        export_button.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold; min-width: 80px;")
         export_button.clicked.connect(self.export_current_view)
         button_layout.addWidget(export_button)
         
         button_layout.addStretch()
-        
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(self.accept)
-        button_layout.addWidget(close_button)
         
         layout.addLayout(button_layout)
         
@@ -192,8 +189,9 @@ class DetailsDialog(QDialog):
             self.table.setItem(i, 7, cost_item)
         
         self.table.resizeColumnsToContents()
-        if self.table.columnWidth(0) > 150:
-            self.table.setColumnWidth(0, 150)
+        # Set minimum width for first column (Scope) to 250px
+        if self.table.columnWidth(0) < 250:
+            self.table.setColumnWidth(0, 250)
     
     def _populate_table_by_provider(self) -> None:
         """Populate table with stats grouped by provider"""
@@ -284,56 +282,11 @@ class DetailsDialog(QDialog):
                     font.setBold(True)
                     cost_item.setFont(font)
                     self.table.setItem(i, 7, cost_item)
-                else:
-                    for col in range(1, 8):
-                        self.table.setItem(i, col, QTableWidgetItem(""))
-            elif row_data[0] == 'empty':
-                # Empty separator row
-                for col in range(8):
-                    self.table.setItem(i, col, QTableWidgetItem(""))
-            else:  # data row
-                # Data row
-                provider_name = row_data[1]
-                stats = row_data[2]
-                provider_id = row_data[3]
-                
-                self.table.setItem(i, 0, QTableWidgetItem(provider_name))
-                
-                input_tok = stats.get('input', 0)
-                output_tok = stats.get('output', 0)
-                reasoning_tok = stats.get('reasoning', 0)
-                cache_read = stats.get('cache_read', 0)
-                cache_write = stats.get('cache_write', 0)
-                messages = stats.get('messages', 0)
-                requests = stats.get('requests', 0)
-                total_output = output_tok + reasoning_tok
-                
-                # Calculate cost for this provider using model-specific pricing
-                scope_key = stats.get('_scope_key', 'today')
-                cost = 0.0
-                # Get model stats for this provider and calculate cost per model
-                model_stats_response = self.app_instance.client.get_stats_by_model(scope_key)
-                if model_stats_response and provider_id in model_stats_response:
-                    for model_id, model_stats in model_stats_response[provider_id].items():
-                        cost += self.settings.calculate_cost(model_stats, model_id=model_id, provider_id=provider_id)
-                else:
-                    # Fallback to generic calculation
-                    cost = self.settings.calculate_cost(stats)
-                
-                # Display values
-                values = [input_tok, total_output, cache_read, cache_write, messages, requests]
-                for col, value in enumerate(values, start=1):
-                    item = QTableWidgetItem(f"{value:,}")
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                    self.table.setItem(i, col, item)
-                
-                cost_item = QTableWidgetItem(f"${cost:.2f}")
-                cost_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                self.table.setItem(i, 7, cost_item)
         
         self.table.resizeColumnsToContents()
-        if self.table.columnWidth(0) > 150:
-            self.table.setColumnWidth(0, 150)
+        # Set minimum width for first column (Provider / Scope) to 250px
+        if self.table.columnWidth(0) < 250:
+            self.table.setColumnWidth(0, 250)
     
     def _populate_table_by_model(self):
         """Populate table with stats grouped by provider and model"""
@@ -469,8 +422,9 @@ class DetailsDialog(QDialog):
                 self.table.setItem(i, 7, cost_item)
         
         self.table.resizeColumnsToContents()
-        if self.table.columnWidth(0) > 150:
-            self.table.setColumnWidth(0, 150)
+        # Set minimum width for first column (Provider / Model / Scope) to 250px
+        if self.table.columnWidth(0) < 250:
+            self.table.setColumnWidth(0, 250)
     
     def _calculate_cost_by_model(self, scope):
         """
@@ -486,17 +440,7 @@ class DetailsDialog(QDialog):
             stats = self.stats_cache.get(scope)
             return self.settings.calculate_cost(stats) if stats else 0.0
         
-        total_cost = 0.0
-        for provider_id, models in model_stats.items():
-            for model_id, stats in models.items():
-                cost = self.settings.calculate_cost(
-                    stats, 
-                    model_id=model_id, 
-                    provider_id=provider_id
-                )
-                total_cost += cost
-        
-        return total_cost
+        return self.settings.calculate_total_cost(model_stats)
     
     def export_current_view(self):
         """Export current view to CSV"""
@@ -543,3 +487,9 @@ class DetailsDialog(QDialog):
         
         except Exception as e:
             QMessageBox.critical(self, "Export Failed", f"Could not export data:\n{str(e)}")
+    
+    def closeEvent(self, a0: Optional[QCloseEvent]) -> None:
+        """Handle window close - notify app to update Dock visibility"""
+        super().closeEvent(a0)
+        if self.app_instance:
+            self.app_instance.on_window_closed()

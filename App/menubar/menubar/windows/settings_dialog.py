@@ -2,8 +2,8 @@ from typing import TYPE_CHECKING, cast, Optional, Any
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, 
                                QLineEdit, QComboBox, QCheckBox, QTabWidget, 
                                QLabel, QPushButton, QMessageBox, QWidget)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtGui import QIcon, QCloseEvent
 from menubar.settings import DEFAULT_SETTINGS, Settings
 from menubar.utils.ui_helpers import get_icon_path
 
@@ -22,7 +22,7 @@ class SettingsDialog(QDialog):
         self.app_instance = app_instance
         self.DEFAULT_SETTINGS = DEFAULT_SETTINGS
         
-        # Make dialog non-modal
+        # Make dialog non-modal (no permanent stay-on-top)
         self.setModal(False)
         self.setWindowFlags(Qt.WindowType.Window)
         
@@ -33,7 +33,7 @@ class SettingsDialog(QDialog):
         
         self.setWindowTitle("Settings")
         self.setMinimumWidth(550)
-        self.setMinimumHeight(520)
+        self.setFixedHeight(660)
         
         layout = QVBoxLayout()
         
@@ -130,19 +130,24 @@ class SettingsDialog(QDialog):
         # Save/Delete/Reset model buttons
         model_buttons = QHBoxLayout()
         reset_button = QPushButton("Reset All to Default")
-        reset_button.setStyleSheet("color: #666;")
         reset_button.clicked.connect(self._reset_all_to_default)
         model_buttons.addWidget(reset_button)
         model_buttons.addStretch()
-        self.save_model_button = QPushButton("Save")
-        self.save_model_button.clicked.connect(self._save_model_pricing)
-        model_buttons.addWidget(self.save_model_button)
+        
+        # Action buttons on the right
         self.delete_model_button = QPushButton("Delete")
         self.delete_model_button.clicked.connect(self._delete_model_pricing)
         model_buttons.addWidget(self.delete_model_button)
+        
         self.reset_model_button = QPushButton("Reset to Default")
         self.reset_model_button.clicked.connect(self._reset_model_pricing)
         model_buttons.addWidget(self.reset_model_button)
+        
+        self.save_model_button = QPushButton("Save")
+        self.save_model_button.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold; min-width: 80px;")
+        self.save_model_button.clicked.connect(self._save_model_pricing)
+        model_buttons.addWidget(self.save_model_button)
+        
         cost_form.addRow(model_buttons)
         
         cost_layout.addLayout(cost_form)
@@ -159,7 +164,7 @@ class SettingsDialog(QDialog):
         notif_form.addRow(notification_label)
         
         self.notifications_enabled = QCheckBox()
-        self.notifications_enabled.setChecked(settings.get('notifications_enabled', True))
+        self.notifications_enabled.setChecked(bool(settings.get('notifications_enabled', True)))
         notif_form.addRow("Enable Notifications:", self.notifications_enabled)
         
         spacer_notif = QLabel("")
@@ -178,7 +183,7 @@ class SettingsDialog(QDialog):
         notif_form.addRow(threshold_label)
         
         self.thresholds_enabled = QCheckBox()
-        self.thresholds_enabled.setChecked(settings.get('thresholds.enabled', False))
+        self.thresholds_enabled.setChecked(bool(settings.get('thresholds.enabled', False)))
         self.thresholds_enabled.stateChanged.connect(self._on_threshold_enabled_changed)
         notif_form.addRow("Enable Thresholds:", self.thresholds_enabled)
         
@@ -233,19 +238,27 @@ class SettingsDialog(QDialog):
         self._on_model_selected()
         
         button_layout = QHBoxLayout()
-        save_button = QPushButton("Save && Close")
-        save_button.clicked.connect(self.save_settings)
-        button_layout.addWidget(save_button)
+        
+        button_layout.addStretch()
+        
         apply_button = QPushButton("Apply")
+        apply_button.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold; min-width: 80px;")
         apply_button.clicked.connect(self.apply_settings)
         button_layout.addWidget(apply_button)
-        button_layout.addStretch()
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(self.close)
-        button_layout.addWidget(close_button)
+        
         layout.addLayout(button_layout)
         
         self.setLayout(layout)
+    
+    def _check_version_update(self):
+        """Check if app version has changed and show update dialog if needed (called from Settings)"""
+        if self.app_instance and hasattr(self.app_instance, '_check_version_update'):
+            # If agent is not online yet, defer check
+            if not self.app_instance.agent_online:
+                QTimer.singleShot(2000, self._check_version_update)
+                return
+            # Call the app's version check method
+            self.app_instance._check_version_update()
     
     def _on_model_selected(self):
         """Load selected model's pricing into input fields"""
@@ -386,9 +399,25 @@ class SettingsDialog(QDialog):
     
     def _reset_all_to_default(self):
         """Reset all model prices to default"""
-        reply = QMessageBox.question(self, "Confirm Reset", "This will reset ALL model prices to their default values. Your custom pricing will be lost. Are you sure?",
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.Yes:
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Confirm Reset")
+        msg_box.setText("This will reset ALL model prices to their default values. Your custom pricing will be lost. Are you sure?")
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        
+        # Add buttons
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        # Style buttons - Yes on right (blue), No on left (gray)
+        yes_button = msg_box.button(QMessageBox.StandardButton.Yes)
+        no_button = msg_box.button(QMessageBox.StandardButton.No)
+        
+        if yes_button:
+            yes_button.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold; min-width: 80px;")
+        if no_button:
+            no_button.setStyleSheet("min-width: 80px;")
+        
+        msg_box.exec()
+        if msg_box.clickedButton() == yes_button:
             try:
                 self.settings.reset_all_models_to_default()
                 self._refresh_model_selector()
@@ -488,3 +517,9 @@ class SettingsDialog(QDialog):
         if self._do_save():
             self.settings_saved.emit()
             self.close()
+    
+    def closeEvent(self, a0: Optional[QCloseEvent]) -> None:
+        """Handle window close - notify app to update Dock visibility"""
+        super().closeEvent(a0)
+        if self.app_instance:
+            self.app_instance.on_window_closed()

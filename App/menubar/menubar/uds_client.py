@@ -146,10 +146,20 @@ class AgentClient:
     def get_stats_by_model_range(self, start_ts, end_ts):
         """Get statistics grouped by provider and model for custom time range"""
         try:
+            print(f"[UDS_CLIENT_DEBUG] get_stats_by_model_range: start={start_ts}, end={end_ts}")
             res = _send_request({"cmd": "stats_by_model_range", "start_ts": start_ts, "end_ts": end_ts})
+            print(f"[UDS_CLIENT_DEBUG] get_stats_by_model_range response ok={res.get('ok')}")
             if res.get("ok"):
-                return res.get("data")
-        except Exception:
+                data = res.get("data")
+                print(f"[UDS_CLIENT_DEBUG] get_stats_by_model_range data type={type(data)}, len={len(data) if data else 0}")
+                if data:
+                    for prov in data:
+                        print(f"[UDS_CLIENT_DEBUG]   Provider '{prov}': {list(data[prov].keys()) if data[prov] else 'empty'}")
+                return data
+            else:
+                print(f"[UDS_CLIENT_DEBUG] get_stats_by_model_range error: {res.get('err')}")
+        except Exception as e:
+            print(f"[UDS_CLIENT_DEBUG] get_stats_by_model_range exception: {e}")
             pass
         return None
 

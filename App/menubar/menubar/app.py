@@ -21,6 +21,13 @@ from menubar.utils.ui_helpers import get_resource_path, get_icon_path
 from menubar.windows import (MainStatsWindow, DetailsDialog, SettingsDialog, 
                              CustomRangeDialog, CustomRangeStatsDialog, ModelUpdateDialog)
 
+# macOS specific imports for Dock management
+if sys.platform == 'darwin':
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyAccessory
+    except ImportError:
+        NSApplication = None
+
 # Import agent config for cross-platform paths
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "agent"))
 try:
@@ -112,11 +119,81 @@ class OpenCodeTokenMeter:
         self.agent_check_timer.timeout.connect(self._check_agent_status)
         self.agent_check_timer.start(2000)  # 2 seconds
         
-        # Check for version updates after a short delay (to let UI load)
-        QTimer.singleShot(3000, self._check_version_update)
+        # macOS Dock visibility (no timer - triggered on window open/close)
+        if sys.platform == 'darwin':
+            # Initial state: hide from Dock (no windows open yet)
+            # Delay to ensure Qt event loop is fully initialized
+            QTimer.singleShot(0, self._update_dock_visibility)
+
+    def _update_dock_visibility(self):
+        """Update macOS Dock visibility based on whether any windows are open"""
+        if sys.platform != 'darwin' or NSApplication is None:
+            return
+            
+        # Check if any of our tracked windows are visible
+        tracked_windows = [
+            self.main_window, 
+            self.details_dialog, 
+            self.settings_dialog, 
+            self.custom_range_dialog, 
+            self.custom_stats_dialog, 
+            self.model_update_dialog
+        ]
+        
+        any_visible = False
+        for w in tracked_windows:
+            try:
+                if w and w.isVisible() and not w.isHidden():
+                    any_visible = True
+                    break
+            except (AttributeError, RuntimeError):
+                continue
+        
+        # Also check QApplication's top-level widgets for any unexpected visible windows
+        # This catches Qt-created windows like file dialogs, message boxes, etc.
+        if not any_visible:
+            app = QApplication.instance()
+            if app:
+                for widget in app.topLevelWidgets():
+                    try:
+                        # Skip the system tray icon's internal widget
+                        if widget.objectName() == 'qt_scrollarea_viewport':
+                            continue
+                        # Skip QMenu (context menus)
+                        if isinstance(widget, QMenu):
+                            continue
+                        # Check if this is a real visible window
+                        if widget.isVisible() and widget.isWindow() and not widget.isHidden():
+                            # Check window size - ignore tiny/zero-size windows
+                            if widget.width() > 10 and widget.height() > 10:
+                                any_visible = True
+                                break
+                    except (AttributeError, RuntimeError):
+                        continue
+        
+        # NSApp is the shared application instance
+        shared_app = NSApplication.sharedApplication()
+        current_policy = shared_app.activationPolicy()
+        
+        if any_visible:
+            if current_policy != NSApplicationActivationPolicyRegular:
+                shared_app.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+        else:
+            if current_policy != NSApplicationActivationPolicyAccessory:
+                shared_app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
     
+    def on_window_closed(self):
+        """Called when any window is closed - update Dock visibility after short delay"""
+        # Use 200ms delay to ensure window state is updated
+        QTimer.singleShot(200, self._update_dock_visibility)
+
     def _check_version_update(self):
         """Check if app version has changed and show update dialog if needed (non-modal)"""
+        # If agent is not online yet, defer check
+        if not self.agent_online:
+            QTimer.singleShot(2000, self._check_version_update)
+            return
+            
         try:
             needs_update, current_ver, app_ver, new_models, customized_models = self.settings.check_version_update()
             
@@ -126,9 +203,10 @@ class OpenCodeTokenMeter:
                 print(f"Customized models: {customized_models}")
                 
                 # Show update dialog (NON-MODAL)
-                self.model_update_dialog = ModelUpdateDialog(self.settings, new_models, customized_models, None)
+                self.model_update_dialog = ModelUpdateDialog(self.settings, new_models, customized_models, self)
                 self.model_update_dialog.accepted.connect(self._on_model_update_accepted)
                 self.model_update_dialog.show()
+                self._update_dock_visibility()
                 self.model_update_dialog.raise_()
                 self.model_update_dialog.activateWindow()
         except Exception as e:
@@ -424,9 +502,12 @@ class OpenCodeTokenMeter:
     
     def _on_tray_activated(self, reason):
         """Handle tray icon activation (left/right click)"""
+        # On macOS, left click already shows the menu via native behavior
+        # Only handle left click on Windows to show menu
         if reason == QSystemTrayIcon.ActivationReason.Trigger:  # Left click
-            # Show menu with proper positioning
-            self._show_menu_at_cursor()
+            if sys.platform == 'win32':
+                # Show menu with proper positioning on Windows
+                self._show_menu_at_cursor()
     
     def _show_menu_at_cursor(self):
         """Show menu with proper positioning (bottom-left corner at cursor)"""
@@ -434,7 +515,13 @@ class OpenCodeTokenMeter:
         menu_size = self.menu.sizeHint()
         
         # Get screen geometry
-        screen = QApplication.primaryScreen().availableGeometry()
+        primary_screen = QApplication.primaryScreen()
+        if primary_screen:
+            screen = primary_screen.availableGeometry()
+        else:
+            # Fallback if no screen detected
+            self.menu.popup(cursor_pos)
+            return
         
         # Default: show menu with bottom-left corner at cursor
         menu_x = cursor_pos.x()
@@ -625,16 +712,11 @@ class OpenCodeTokenMeter:
             return cached_cost
         
         model_stats = self.client.get_stats_by_model(scope)
-        if not model_stats:
+        if model_stats:
+            cost = self.settings.calculate_total_cost(model_stats)
+        else:
             stats = self.stats_cache.get(scope)
             cost = self.settings.calculate_cost(stats) if stats else 0.0
-        else:
-            total_cost = 0.0
-            for provider_id, models in model_stats.items():
-                for model_id, stats in models.items():
-                    cost = self.settings.calculate_cost(stats, model_id=model_id, provider_id=provider_id)
-                    total_cost += cost
-            cost = total_cost
         
         self.cost_cache[scope] = cost
         return cost
@@ -847,6 +929,7 @@ class OpenCodeTokenMeter:
         self.custom_range_dialog = CustomRangeDialog(self)
         self.custom_range_dialog.accepted.connect(self._on_custom_range_accepted)
         self.custom_range_dialog.show()
+        self._update_dock_visibility()
     
     def _on_custom_range_accepted(self):
         if not self.custom_range_dialog:
@@ -865,6 +948,7 @@ class OpenCodeTokenMeter:
                     if self.custom_stats_dialog: self.custom_stats_dialog.close()
                     self.custom_stats_dialog = CustomRangeStatsDialog(stats, self.settings, self.client, start_ts, end_ts, self)
                     self.custom_stats_dialog.show()
+                    self._update_dock_visibility()
                 QTimer.singleShot(1000, lambda: self._open_file_location(result))
             else:
                 self._show_notification("OpenCode Token Meter", "Export Failed", QSystemTrayIcon.MessageIcon.Critical)
@@ -878,15 +962,19 @@ class OpenCodeTokenMeter:
             return
         self.details_dialog = DetailsDialog(self.stats_cache, self.settings, self)
         self.details_dialog.show()
+        self._update_dock_visibility()
     
     def show_main_window(self):
-        if self.main_window is None:
-            self.main_window = MainStatsWindow(self)
+        # Always recreate the main window
+        if self.main_window:
+            self.main_window.close()
+        self.main_window = MainStatsWindow(self)
         self._update_all_stats()
         self.main_window.update_display()
         self.main_window.show()
         self.main_window.raise_()
         self.main_window.activateWindow()
+        self._update_dock_visibility()
     
     def show_settings(self):
         if self.settings_dialog and self.settings_dialog.isVisible():
@@ -896,11 +984,15 @@ class OpenCodeTokenMeter:
         self.settings_dialog = SettingsDialog(self.settings, self)
         self.settings_dialog.settings_saved.connect(self._update_all_stats)
         self.settings_dialog.show()
+        self._update_dock_visibility()
     
     def quit_app(self):
         self.auto_refresh_enabled = False
         self._close_all_windows()
-        try: self.client.shutdown()
+        try: 
+            self.client.shutdown()
+            # Give it a tiny bit of time to send the packet
+            time.sleep(0.1)
         except: pass
         QApplication.quit()
     

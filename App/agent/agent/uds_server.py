@@ -35,7 +35,7 @@ async def handle_client(reader, writer, scanner):
         if not line:
             writer.close()
             return
-
+        
         try:
             req = json.loads(line.decode())
         except Exception:
@@ -43,11 +43,11 @@ async def handle_client(reader, writer, scanner):
             await writer.drain()
             writer.close()
             return
-
+        
         cmd = req.get('cmd')
         log_message(f"Agent received command: {cmd}")
         response = {"ok": False, "err": "unknown command"}
-
+        
         if cmd == 'stats':
             scope = req.get('scope', 'today')
             res = aggregate(scope)
@@ -64,14 +64,14 @@ async def handle_client(reader, writer, scanner):
                     "requests": get_request_count(scope)
                 }
             }
-
+        
         elif cmd == 'refresh':
             # Run incremental scan in executor to avoid blocking
             n = await asyncio.get_event_loop().run_in_executor(
                 None, lambda: scanner.scan_once(incremental=True)
             )
             response = {"ok": True, "scanned": n}
-
+        
         elif cmd == 'export_csv':
             out = req.get('out_path')
             scope = req.get('scope', 'this_month')
@@ -83,7 +83,7 @@ async def handle_client(reader, writer, scanner):
                 response = {"ok": True, "path": path}
             except Exception as e:
                 response = {"ok": False, "err": str(e)}
-
+        
         elif cmd == 'export_csv_range':
             out = req.get('out_path')
             start_ts = req.get('start_ts')
@@ -96,7 +96,7 @@ async def handle_client(reader, writer, scanner):
                 response = {"ok": True, "path": path}
             except Exception as e:
                 response = {"ok": False, "err": str(e)}
-
+        
         elif cmd == 'stats_range':
             start_ts = req.get('start_ts')
             end_ts = req.get('end_ts')
@@ -116,14 +116,14 @@ async def handle_client(reader, writer, scanner):
                 }
             except Exception as e:
                 response = {"ok": False, "err": str(e)}
-
+        
         elif cmd == 'status':
             response = {
                 "ok": True,
                 "last_scan": scanner.last_scan_time,
                 "uptime": "running"
             }
-
+        
         elif cmd == 'stats_by_provider':
             scope = req.get('scope', 'today')
             try:
@@ -131,7 +131,7 @@ async def handle_client(reader, writer, scanner):
                 response = {"ok": True, "data": providers}
             except Exception as e:
                 response = {"ok": False, "err": str(e)}
-
+        
         elif cmd == 'stats_by_model':
             scope = req.get('scope', 'today')
             try:
@@ -139,16 +139,19 @@ async def handle_client(reader, writer, scanner):
                 response = {"ok": True, "data": models}
             except Exception as e:
                 response = {"ok": False, "err": str(e)}
-
+        
         elif cmd == 'stats_by_model_range':
             start_ts = req.get('start_ts')
             end_ts = req.get('end_ts')
+            log_message(f"[SERVER_DEBUG] stats_by_model_range: start_ts={start_ts} (type={type(start_ts).__name__}), end_ts={end_ts} (type={type(end_ts).__name__})")
             try:
                 models = aggregate_by_model_range(start_ts, end_ts)
+                log_message(f"[SERVER_DEBUG] stats_by_model_range returned {len(models)} providers")
                 response = {"ok": True, "data": models}
             except Exception as e:
+                log_message(f"[SERVER_DEBUG] stats_by_model_range exception: {e}")
                 response = {"ok": False, "err": str(e)}
-
+        
         elif cmd == 'shutdown':
             # Gracefully request the agent to stop
             response = {"ok": True, "msg": "shutting down"}
@@ -157,17 +160,17 @@ async def handle_client(reader, writer, scanner):
                     _stop_event.set()
             except Exception:
                 pass
-
+        
         writer.write((json.dumps(response) + "\n").encode())
         await writer.drain()
-
+    
     except Exception as e:
         try:
             writer.write((json.dumps({"ok": False, "err": str(e)}) + "\n").encode())
             await writer.drain()
         except:
             pass
-
+    
     finally:
         writer.close()
 
@@ -189,20 +192,20 @@ async def start_server(scanner):
                     os.remove(SOCKET_PATH)
                 except:
                     pass
-
+            
             # Use start_unix_server for Unix Domain Sockets
             server = await asyncio.start_unix_server(
                 lambda r, w: handle_client(r, w, scanner),
                 path=SOCKET_PATH
             )
-
+            
             try:
                 os.chmod(SOCKET_PATH, stat.S_IRUSR | stat.S_IWUSR)
             except:
                 pass
-
+            
             log_message(f"Agent listening on {SOCKET_PATH} (UDS)")
-
+        
         global _stop_event
         _stop_event = asyncio.Event()
 
@@ -230,7 +233,7 @@ def main():
     from agent.db import init_db, migrate_fix_roles
     from agent.config import LOCKFILE_PATH, REFRESH_INTERVAL_SECONDS
     import time
-
+    
     if os.path.exists(LOCKFILE_PATH):
         try:
             lock_age = time.time() - os.path.getmtime(LOCKFILE_PATH)
@@ -241,29 +244,29 @@ def main():
                 os.remove(LOCKFILE_PATH)
         except:
             pass
-
+    
     try:
         with open(LOCKFILE_PATH, 'w') as f:
             f.write(str(os.getpid()))
     except Exception as e:
         print(f"Failed to create lockfile: {e}", file=sys.stderr)
         return
-
+    
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
+    
     try:
         init_db()
         log_message("Running database migration...")
         fixed_count = migrate_fix_roles()
         if fixed_count > 0:
             log_message(f"Fixed {fixed_count} messages with NULL role")
-
+        
         scanner = Scanner()
         log_message("Performing quick start scan (last 7 days)...")
         count = scanner.scan_once(incremental=True, quick_start=True)
         log_message(f"Quick start scan completed: {count} messages indexed")
-
+        
         loop.run_until_complete(start_server(scanner))
     except Exception as e:
         log_message(f"Critical error in agent main: {e}")

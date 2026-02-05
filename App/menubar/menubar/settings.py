@@ -346,59 +346,114 @@ class Settings:
         """Calculate cost from token stats with model-specific pricing"""
         if not stats:
             return 0.0
-        
+
         # Try to get model-specific pricing
         prices = None
+        price_source = "unknown"
+        
         if model_id and provider_id:
             # Try provider/model format first (most specific)
             combined_key = f"{provider_id}/{model_id}"
             # Use direct dict access to avoid splitting by '/' in settings.get()
             models_dict = self.settings.get('prices', {}).get('models', {})
             prices = models_dict.get(combined_key)
-        
+            if prices:
+                price_source = f"user_models:{combined_key}"
+
         if not prices and model_id:
             # Try just model_id
             models_dict = self.settings.get('prices', {}).get('models', {})
             prices = models_dict.get(model_id)
+            if prices:
+                price_source = f"user_models:{model_id}"
 
         if not prices and model_id:
             default_models = DEFAULT_SETTINGS['prices']['models']
             if provider_id:
                 combined_key = f"{provider_id}/{model_id}"
                 prices = default_models.get(combined_key)
+                if prices:
+                    price_source = f"default_models:{combined_key}"
             if not prices:
                 prices = default_models.get(model_id)
-        
+                if prices:
+                    price_source = f"default_models:{model_id}"
+
+        # Fall back to provider-level defaults if no model match
+        if not prices and provider_id:
+            if provider_id == 'opencode':
+                # OpenCode models are always FREE
+                prices = {'input': 0.0, 'output': 0.0, 'caching': 0.0, 'request': 0.0}
+                price_source = "provider_default:opencode"
+            elif provider_id == 'github-copilot':
+                # GitHub Copilot models are token-free, but may have per-request fees
+                # Try to find a representative request fee from defaults if possible
+                default_models = DEFAULT_SETTINGS['prices']['models']
+                # Search for any copilot model to get the standard request fee if not found
+                req_fee = 0.0
+                for k, v in default_models.items():
+                    if k.startswith('github-copilot/'):
+                        req_fee = v.get('request', 0.0)
+                        break
+                prices = {'input': 0.0, 'output': 0.0, 'caching': 0.0, 'request': req_fee}
+                price_source = "provider_default:github-copilot"
+            elif provider_id == 'nvidia':
+                # NVIDIA NIMs are currently mostly free/trial
+                prices = {'input': 0.0, 'output': 0.0, 'caching': 0.0, 'request': 0.0}
+                price_source = "provider_default:nvidia"
+
         # Fall back to default prices
         if not prices:
             prices = self.get('prices.default')
-            if not prices:
-                # Hardcoded fallback
-                prices = {
-                    'input': 0.5,
-                    'output': 3.0,
-                    'caching': 0.05,
-                    'request': 0.0
-                }
-        
+            if prices:
+                price_source = "prices.default"
+            
+        if not prices:
+            # Hardcoded fallback
+            prices = {
+                'input': 0.5,
+                'output': 3.0,
+                'caching': 0.05,
+                'request': 0.0
+            }
+            price_source = "hardcoded_fallback"
+
         input_tokens = stats.get('input', 0)
         output_tokens = stats.get('output', 0)
         reasoning_tokens = stats.get('reasoning', 0)
         cache_read = stats.get('cache_read', 0)
         cache_write = stats.get('cache_write', 0)
         requests = stats.get('requests', 0)
-        
+
         total_output = output_tokens + reasoning_tokens
         total_caching = cache_read + cache_write
-        
+
         cost = (
             (input_tokens * prices.get('input', 0) / 1_000_000) +
             (total_output * prices.get('output', 0) / 1_000_000) +
             (total_caching * prices.get('caching', 0) / 1_000_000) +
             (requests * prices.get('request', 0))
         )
-        
+
         return cost
+    
+    def calculate_total_cost(self, model_stats_dict):
+        """
+        Calculate total cost from a nested model stats dictionary:
+        { provider_id: { model_id: stats_dict } }
+        """
+        if not model_stats_dict:
+            return 0.0
+            
+        total_cost = 0.0
+        for provider_id, models in model_stats_dict.items():
+            for model_id, stats in models.items():
+                total_cost += self.calculate_cost(
+                    stats, 
+                    model_id=model_id, 
+                    provider_id=provider_id
+                )
+        return total_cost
     
     def add_model_price(self, model_id, prices):
         """Add or update model-specific pricing"""

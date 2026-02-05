@@ -73,7 +73,7 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
     
     -- Deduplication index for faster model-specific cost calculations
-    CREATE INDEX IF NOT EXISTS idx_dedup ON messages(ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id);
+    CREATE INDEX IF NOT EXISTS idx_dedup ON messages(ts, role, input, output, reasoning, cache_read, cache_write);
     """)
     conn.commit()
     conn.close()
@@ -116,14 +116,26 @@ def update_file_mtime(path, mtime):
 def _get_deduplicated_messages_subquery(where_clause=""):
     """
     Generate SQL subquery for deduplicated messages.
-    Deduplication is based on: ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id
-    When duplicates are found, we keep the one with the lexicographically smallest msg_id.
+    Deduplication is based on: ts, role, input, output, reasoning, cache_read, cache_write
+    Note: provider_id and model_id are EXCLUDED from the GROUP BY to prevent double-counting
+    when the same message is recorded once with metadata and once without (e.g. from different scan passes).
+    
+    Priority for picking the canonical record:
+    1. Prefer records that have provider_id/model_id.
+    2. Then pick the record with the lexicographically smallest msg_id.
     """
     base_where = f"WHERE {where_clause}" if where_clause else ""
+    # We use a subquery with ORDER BY to ensure that when we GROUP BY, 
+    # we pick the record that has provider_id and model_id if available.
+    # In SQLite, GROUP BY returns the FIRST row for each group. 
+    # By ordering by provider_id presence first, we ensure the row with metadata is the "first" one.
     return f"""
-    (SELECT * FROM messages {base_where}
-     GROUP BY ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id
-     HAVING msg_id = MIN(msg_id))
+    (SELECT * FROM (
+        SELECT * FROM messages {base_where} 
+        ORDER BY (CASE WHEN provider_id IS NOT NULL AND provider_id != '' THEN 0 ELSE 1 END) ASC, 
+                 msg_id ASC
+     )
+     GROUP BY ts, role, input, output, reasoning, cache_read, cache_write)
     """
 
 def aggregate(scope):
@@ -616,16 +628,37 @@ def aggregate_by_model_range(start_ts, end_ts):
     Returns dict[provider_id, dict[model_id, stats_dict]]
     Uses deduplication to avoid counting duplicate messages across sessions.
     """
+    import sys
+    print(f"[DB_DEBUG] aggregate_by_model_range called: start_ts={start_ts}, end_ts={end_ts}", file=sys.stderr)
+    print(f"[DB_DEBUG]   start_ts type={type(start_ts)}, end_ts type={type(end_ts)}", file=sys.stderr)
+    
     conn = get_conn()
     c = conn.cursor()
     
+    # Debug: Check total message count
+    c.execute("SELECT COUNT(*) FROM messages")
+    total_count = c.fetchone()[0]
+    print(f"[DB_DEBUG]   Total messages in DB: {total_count}", file=sys.stderr)
+    
+    # Debug: Check messages in range using simple query
+    c.execute("SELECT COUNT(*) FROM messages WHERE ts >= ? AND ts < ?", (start_ts, end_ts))
+    range_count = c.fetchone()[0]
+    print(f"[DB_DEBUG]   Messages in range (simple): {range_count}", file=sys.stderr)
+    
+    # Debug: Show min/max ts in database
+    c.execute("SELECT MIN(ts), MAX(ts) FROM messages")
+    ts_range = c.fetchone()
+    print(f"[DB_DEBUG]   DB ts range: min={ts_range[0]}, max={ts_range[1]}", file=sys.stderr)
+    
     # Build WHERE clause for time range
     where_filter = f"ts >= {start_ts} AND ts < {end_ts}"
+    print(f"[DB_DEBUG]   where_filter: {where_filter}", file=sys.stderr)
     
     # Use deduplicated subquery and aggregate by provider and model
     subquery = _get_deduplicated_messages_subquery(where_filter)
     token_filter = "(input > 0 OR output > 0 OR reasoning > 0 OR cache_read > 0 OR cache_write > 0)"
-    c.execute(f"""
+    
+    query = f"""
     SELECT provider_id, model_id,
            SUM(input), SUM(output), SUM(reasoning),
            SUM(cache_read), SUM(cache_write),
@@ -633,12 +666,18 @@ def aggregate_by_model_range(start_ts, end_ts):
            COUNT(CASE WHEN role='user' THEN 1 END) as requests
     FROM {subquery}
     GROUP BY provider_id, model_id
-    """)
+    """
+    print(f"[DB_DEBUG]   Executing query...", file=sys.stderr)
+    c.execute(query)
     
     result = {}
-    for row in c.fetchall():
+    rows = c.fetchall()
+    print(f"[DB_DEBUG]   Query returned {len(rows)} rows", file=sys.stderr)
+    
+    for row in rows:
         provider_id = row[0] or 'unknown'
         model_id = row[1] or 'unknown'
+        print(f"[DB_DEBUG]   Row: provider={provider_id}, model={model_id}, input={row[2]}, output={row[3]}", file=sys.stderr)
         
         if provider_id not in result:
             result[provider_id] = {}
@@ -654,6 +693,7 @@ def aggregate_by_model_range(start_ts, end_ts):
         }
     
     conn.close()
+    print(f"[DB_DEBUG]   Returning result with {len(result)} providers", file=sys.stderr)
     return result
 
 

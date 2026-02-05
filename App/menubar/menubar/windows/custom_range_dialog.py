@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Tuple, Optional
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QDateEdit, 
                                QTimeEdit, QHBoxLayout, QPushButton, QWidget)
 from PyQt6.QtCore import Qt, QDateTime, QDate, QTime
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QCloseEvent
 from menubar.utils.ui_helpers import get_icon_path
 
 if TYPE_CHECKING:
@@ -13,7 +13,7 @@ class CustomRangeDialog(QDialog):
         super().__init__()
         self.app_instance = app_instance
         
-        # Make dialog non-modal
+        # Make dialog non-modal (no permanent stay-on-top)
         self.setModal(False)
         self.setWindowFlags(Qt.WindowType.Window)
         
@@ -68,15 +68,17 @@ class CustomRangeDialog(QDialog):
         layout.addLayout(form)
         
         button_layout = QHBoxLayout()
-        export_btn = QPushButton("Export")
-        export_btn.setMinimumHeight(30)
-        export_btn.clicked.connect(self.accept)
-        button_layout.addWidget(export_btn)
-        
         cancel_btn = QPushButton("Cancel")
-        cancel_btn.setMinimumHeight(30)
+        cancel_btn.setMinimumWidth(80)
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
+        
+        button_layout.addStretch()
+        
+        export_btn = QPushButton("Export")
+        export_btn.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold; min-width: 80px;")
+        export_btn.clicked.connect(self.accept)
+        button_layout.addWidget(export_btn)
         
         layout.addLayout(button_layout)
         self.setLayout(layout)
@@ -91,3 +93,9 @@ class CustomRangeDialog(QDialog):
         end_ts = int(end_dt.toSecsSinceEpoch())
         
         return start_ts, end_ts
+    
+    def closeEvent(self, a0: Optional[QCloseEvent]) -> None:
+        """Handle window close - notify app to update Dock visibility"""
+        super().closeEvent(a0)
+        if self.app_instance:
+            self.app_instance.on_window_closed()

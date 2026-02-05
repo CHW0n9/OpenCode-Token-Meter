@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Tuple, List, Optional, Dict, Any
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                                 QTableWidget, QTableWidgetItem, QPushButton, QMenu)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtGui import QIcon, QAction, QCloseEvent
 from menubar.utils.ui_helpers import get_icon_path
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ class MainStatsWindow(QWidget):
         self.setMinimumWidth(700)
         self.setMinimumHeight(250)
         
-        # Standard window (no WindowStaysOnTopHint - all windows equal priority)
+        # Standard window (no permanent stay-on-top)
         self.setWindowFlags(Qt.WindowType.Window)
         
         layout = QVBoxLayout()
@@ -89,7 +89,7 @@ class MainStatsWindow(QWidget):
         export_menu.addSeparator()
         
         export_custom_action = QAction("Custom Range...", export_menu)
-        export_custom_action.triggered.connect(lambda: (self.hide(), self.app_instance.export_csv_custom()))
+        export_custom_action.triggered.connect(lambda: (self.close(), self.app_instance.export_csv_custom()))
         export_menu.addAction(export_custom_action)
         
         export_btn.setMenu(export_menu)
@@ -105,27 +105,23 @@ class MainStatsWindow(QWidget):
         
         button_layout.addStretch()
         
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.hide)
-        button_layout.addWidget(close_btn)
-        
         layout.addLayout(button_layout)
         
         self.setLayout(layout)
     
     def on_export_csv_and_close_with_scope(self, scope: str) -> None:
         """Export CSV with specific scope and close window"""
-        self.hide()
+        self.close()
         self.app_instance.export_csv_scope(scope)
     
     def on_show_details_and_close(self) -> None:
         """Show details dialog and close window"""
-        self.hide()
+        self.close()
         self.app_instance.show_details()
     
     def on_show_settings_and_close(self) -> None:
         """Show settings dialog and close window"""
-        self.hide()
+        self.close()
         self.app_instance.show_settings()
     
     def on_refresh(self) -> None:
@@ -189,3 +185,9 @@ class MainStatsWindow(QWidget):
             self.table.setItem(i, 4, cost_item)
         
         self.table.resizeColumnsToContents()
+    
+    def closeEvent(self, a0: Optional[QCloseEvent]) -> None:
+        """Handle window close - notify app to update Dock visibility"""
+        super().closeEvent(a0)
+        if self.app_instance:
+            self.app_instance.on_window_closed()

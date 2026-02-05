@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                QCheckBox, QHeaderView, QGroupBox, QScrollArea,
                                QWidget)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QCloseEvent
 from menubar.settings import DEFAULT_SETTINGS, Settings
 from menubar.utils.ui_helpers import get_icon_path
 
@@ -14,16 +14,17 @@ if TYPE_CHECKING:
 class ModelUpdateDialog(QDialog):
     """Dialog to show model pricing updates and let user choose what to update"""
     
-    def __init__(self, settings: Settings, new_models: List[str], customized_models: List[str], parent: Optional[QWidget] = None):
-        super().__init__(parent)
+    def __init__(self, settings: Settings, new_models: List[str], customized_models: List[str], app_instance: Optional["OpenCodeTokenMeter"] = None):
+        super().__init__(None)
         self.settings = settings
         self.new_models = new_models
         self.customized_models = customized_models
         self.selected_models_to_update: List[str] = []
         self.user_choice: Optional[str] = None  # 'update_all', 'keep_all', 'selective'
         self.DEFAULT_SETTINGS = DEFAULT_SETTINGS
+        self.app_instance = app_instance
         
-        # Make dialog non-modal
+        # Make dialog non-modal (no permanent stay-on-top)
         self.setModal(False)
         self.setWindowFlags(Qt.WindowType.Window)
         
@@ -63,7 +64,9 @@ class ModelUpdateDialog(QDialog):
             
             new_table = QTableWidget(len(self.new_models), 4)
             new_table.setHorizontalHeaderLabels(["Model", "Provider", "Request Price", "Status"])
-            new_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            header = new_table.horizontalHeader()
+            if header:
+                header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
             
             for i, model_id in enumerate(sorted(self.new_models)):
                 default_price = self.DEFAULT_SETTINGS['prices']['models'].get(model_id, {})
@@ -86,7 +89,9 @@ class ModelUpdateDialog(QDialog):
             
             cust_table = QTableWidget(len(self.customized_models), 6)
             cust_table.setHorizontalHeaderLabels(["Update", "Model", "Provider", "Your Price", "New Price", "Diff"])
-            cust_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            header = cust_table.horizontalHeader()
+            if header:
+                header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
             
             self.cust_checkboxes = []
             for i, model_id in enumerate(sorted(self.customized_models)):
@@ -136,21 +141,23 @@ class ModelUpdateDialog(QDialog):
         
         # Action buttons
         button_layout = QHBoxLayout()
-        self.update_all_btn = QPushButton("Update All Models")
-        self.update_all_btn.setStyleSheet("background-color: #4CAF50; color: white; padding: 10px;")
-        self.update_all_btn.clicked.connect(self.on_update_all)
-        
-        self.update_selected_btn = QPushButton("Update Selected Only")
-        self.update_selected_btn.setStyleSheet("background-color: #2196F3; color: white; padding: 10px;")
-        self.update_selected_btn.clicked.connect(self.on_update_selected)
         
         self.keep_all_btn = QPushButton("Keep My Custom Prices")
-        self.keep_all_btn.setStyleSheet("padding: 10px;")
+        self.keep_all_btn.setStyleSheet("min-width: 150px;")
         self.keep_all_btn.clicked.connect(self.on_keep_all)
-        
-        button_layout.addWidget(self.update_all_btn)
-        button_layout.addWidget(self.update_selected_btn)
         button_layout.addWidget(self.keep_all_btn)
+        
+        button_layout.addStretch()
+        
+        self.update_selected_btn = QPushButton("Update Selected Only")
+        self.update_selected_btn.setStyleSheet("background-color: #2196F3; color: white; min-width: 150px;")
+        self.update_selected_btn.clicked.connect(self.on_update_selected)
+        button_layout.addWidget(self.update_selected_btn)
+        
+        self.update_all_btn = QPushButton("Update All Models")
+        self.update_all_btn.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold; min-width: 150px;")
+        self.update_all_btn.clicked.connect(self.on_update_all)
+        button_layout.addWidget(self.update_all_btn)
         
         layout.addLayout(button_layout)
         
@@ -202,3 +209,9 @@ class ModelUpdateDialog(QDialog):
             'choice': self.user_choice,
             'selected_models': self.selected_models_to_update
         }
+    
+    def closeEvent(self, a0: Optional[QCloseEvent]):
+        """Handle window close - notify app to update Dock visibility"""
+        if self.app_instance:
+            self.app_instance.on_window_closed()
+        super().closeEvent(a0)
