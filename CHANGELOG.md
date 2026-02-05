@@ -7,7 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2025-02-01
+## [1.0.1] - 2026-02-05
+
+### Added
+- **Windows Support**: Full support for Windows platform with native system tray integration.
+- **Unified Build System**: Single `.spec` file for building on Windows and macOS.
+- **Embedded Agent**: Background agent now runs as a thread within the main application, eliminating the need for a separate process.
+- **Platform-Aware Paths**: Standardized data and settings locations for Windows (`%APPDATA%`) and macOS (`Library/Application Support`).
+- **Settings Migration**: Automatic migration of settings from legacy macOS-style paths on Windows to the correct platform-appropriate directory.
+- **Model Management UI**:
+    - "(customized)" label for models with user-defined pricing.
+    - "Mark as Deleted" to hide default models.
+    - "Reset to Default" and "Reset All to Default" functionality.
+- **Registry Integration (Windows)**: Added scripts for setting AppUserModelID and handling shortcuts for better toast notification support.
+
+### Changed
+- **Settings Refactor**: Stabilized settings logic to separate user overrides from default model definitions.
+- **Normalization**: User settings now only store values that differ from defaults, keeping `settings.json` clean.
+- **Build Process**: Windows builds now use `build_windows.bat` for a single-executable output.
+
+### Fixed
+- **Settings Data Loss**: Fixed a bug where merging user settings could inadvertently delete default models due to shallow copying.
+- **Pathing Issues**: Resolved hardcoded macOS paths in settings and IPC logic.
+- **Windows Icon Support**: Integrated multi-size `.ico` resource for Windows executables.
+- **IPC Reliability**: Standardized Unix Domain Socket (macOS) and TCP (Windows) for inter-process communication.
+
+---
+
+## [1.0.0] - 2026-02-01
 
 ### Added
 
@@ -115,27 +142,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints on public APIs (gradual typing approach)
 - Code style: Black (88 char), isort, flake8
 - Testing infrastructure not yet added (see AGENTS.md for suggestions)
-
-### Future Roadmap
-- [ ] Code signing for macOS distribution
-- [ ] Export to CSV/Excel formats
-- [ ] Historical trend graphs
-- [ ] Multi-user support
-- [ ] Cloud sync options
-- [ ] Unit tests (suggested in AGENTS.md)
-- [ ] Dark mode support
-- [ ] Keyboard shortcuts
-
----
-
-## [Unreleased]
-
-### Planned Features
-- Percentage-based thresholds
-- Advanced filtering by model/provider
-- Batch operations for data management
-- Settings import/export
-- Performance optimizations for large message volumes
 
 ---
 

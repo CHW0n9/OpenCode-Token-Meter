@@ -1,9 +1,13 @@
-# OpenCode Token Meter
+<h1 align="center">OpenCode Token Meter</h1>
+<p align="center">
+  <a href="https://github.com/CHW0n9/OpenCode-Token-Meter/releases">
+    <img src="assets/logo.png" alt="Project Logo" width="128">
+  </a>
+</p>
 
+**OpenCode Token Meter** is a lightweight cross-platform (macOS, Windows) menubar application that tracks model token usage from [OpenCode](https://opencode.ai). It monitors message history, calculates costs for different AI models, and provides detailed usage statistics with an intuitive interface.
 
-**OpenCode Token Meter** is a lightweight macOS menubar application that tracks model token usage from [OpenCode](https://opencode.ai). It monitors message history, calculates costs for different AI models, and provides detailed usage statistics with an intuitive interface.
-
-**Note**: This project was developed entirely using [OpenCode](https://opencode.ai).
+**Note**: This project was developed entirely using [OpenCode](https://opencode.ai). This project is not built by the OpenCode team and is not affiliated with them in any way.
 
 ---
 
@@ -14,56 +18,63 @@
 - **📈 Detailed Analytics** - View token usage by provider, model, and time range
 - **⚙️ Customizable Settings** - Set cost thresholds and notification preferences
 - **📥 Token Usage Export** - Export usage data for custom date ranges
-- **🔄 Automatic Updates** - Background agent continuously monitors your message directory
+- **🔄 Automatic Updates** - Embedded background agent continuously monitors your message directory
 - **🔐 Privacy-Focused** - All data stored locally in SQLite database
-- **⚡ Lightweight** - Minimal resource usage in menubar
+- **⚡ Lightweight** - Minimal resource usage in system tray / menubar
+- **💻 Cross-Platform** - Unified support for macOS and Windows
 
 ---
 
 ## Installation
 
-### Option 1: DMG Installer (Recommended)
+### Option 1: Pre-built Binaries (Recommended)
 
-1. Download `OpenCodeTokenMeter-1.0.0.dmg` from the [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases)
+#### Windows
+1. Download `OpenCodeTokenMeter.exe` from the [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases)
+2. Run the executable to start the application.
+3. The app will appear in your system tray.
+
+#### macOS
+1. Download `OpenCodeTokenMeter-1.0.1.dmg` from the [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases)
 2. Double-click the `.dmg` file to open it
 3. Drag "OpenCode Token Meter.app" to the Applications folder
 4. Open Applications folder and double-click "OpenCode Token Meter.app"
 
-#### Important: Running Unsigned Apps on macOS
-
-Since the app is not code-signed, you may see a security warning on first launch:
-
-**If you see "cannot be opened because it is from an unidentified developer":**
-
-1. Go to System Settings → Privacy & Security
-2. Scroll down to "OpenCode Token Meter.app"
-3. Click "Open Anyway" next to the app name
-4. Re-launch the application
-
-Alternatively, run in Terminal:
-```bash
-xattr -d com.apple.quarantine "/Applications/OpenCode Token Meter.app"
-```
+**Important: Running Unsigned Apps on macOS**
+Since the app is not code-signed, you may see a security warning on first launch. Go to **System Settings → Privacy & Security** and click **"Open Anyway"** for OpenCode Token Meter.
 
 ### Option 2: Build from Source
 
-**Requirements:**
-- Python 3.12+
+#### Unified Build System
+This project uses a **single unified spec file** (`OpenCodeTokenMeter.spec`) with automatic platform detection for building on Windows and macOS.
+
+#### Requirements:
+- Python 3.9+
 - PyQt6
-- SQLite3
+- PyInstaller
 
-**Steps:**
+#### Quick Build Steps:
 
-```bash
-# Clone repository
-git clone https://github.com/chw0n9/opencode-token-meter.git
-cd opencode-token-meter
-
-# Build the app
-./build.sh
-
-# The DMG file will be generated in the build/ directory
+**Windows:**
+```powershell
+.\build_windows.bat
 ```
+Output: `dist\OpenCodeTokenMeter.exe`
+
+**macOS:**
+```bash
+./build.sh
+```
+Output: `dist/OpenCode Token Meter.app`
+
+#### What Gets Built:
+- **Windows**: Single unified executable (`.exe`) including the menubar UI and embedded agent.
+- **macOS**: Native `.app` bundle including the menubar UI and embedded agent.
+
+#### Key Features of the Build:
+- **Embedded Agent**: The background agent now runs as a **background thread** inside the main app. No separate process or executable is required!
+- **Platform Detection**: The build system automatically detects your OS and uses the correct icons (`.ico` for Windows, `.icns` for macOS).
+- **Single File Distribution**: True single-file distribution (except on macOS where it's a standard app bundle).
 
 ---
 
@@ -71,17 +82,13 @@ cd opencode-token-meter
 
 This app scans your OpenCode message directory to calculate token usage. Messages are read from:
 
-```
-~/.local/share/opencode/storage/message/
-```
-
-Each OpenCode session creates a subdirectory like `ses_XXXXXXX/` containing JSON message files with token count data.
+- **macOS**: `~/.local/share/opencode/storage/message/`
+- **Windows**: `%LOCALAPPDATA%\opencode\storage\message\`
 
 The app stores its configuration and calculated metrics locally at:
 
-```
-~/Library/Application Support/OpenCode Token Meter/index.db
-```
+- **macOS**: `~/Library/Application Support/OpenCode Token Meter/`
+- **Windows**: `%APPDATA%\OpenCode Token Meter\`
 
 ---
 
@@ -91,43 +98,39 @@ The app stores its configuration and calculated metrics locally at:
 OpenCode Token Meter
 │
 ├── App/
-│   ├── agent/                    # Background service (Python)
-│   │   ├── agent/__main__.py    # Entry point
+│   ├── agent/                    # Background logic (Python)
 │   │   ├── agent/db.py          # SQLite database with dedup logic
 │   │   ├── agent/scanner.py     # Message directory scanner
-│   │   ├── agent/uds_server.py  # Unix Domain Socket server
-│   │   ├── agent/config.py      # Configuration paths
-│   │   └── pyproject.toml
+│   │   ├── agent/config.py      # Platform-aware configuration
 │   │
 │   └── menubar/                  # PyQt6 GUI application
-│       ├── menubar/__main__.py  # Entry point
 │       ├── menubar/app.py       # Main app logic, dialogs, UI
-│       ├── menubar/settings.py  # Settings management
-│       ├── menubar/uds_client.py # Socket client
-│       ├── menubar/resources/   # App icons and resources
-│       ├── setup.py
-│       └── pyproject.toml
+│       ├── menubar/settings.py  # Platform-aware settings management
+│       ├── menubar/uds_client.py # Socket client (TCP fallback on Windows)
+│       └── menubar/resources/   # App icons (.ico, .icns, .png)
 │
-├── build.sh                      # Build script (PyInstaller)
+├── OpenCodeTokenMeter.spec       # Unified build specification
+├── build_windows.bat             # Windows build script
+├── build.sh                      # macOS build script
 └── AGENTS.md                     # Developer guide
 ```
 
 ### Key Components
 
-**Agent (Background Service)**
-- Runs continuously in background via Unix Domain Socket
-- Scans `~/.local/share/opencode/storage/message/` directory
-- Parses JSON message files and extracts token counts
-- Deduplicates messages (handles OpenCode's session copying)
-- Stores data in local SQLite database
+**Embedded Agent**
+- Runs as a background thread within the main process.
+- Scans the OpenCode message directory every few seconds.
+- Parses JSON message files and extracts token counts.
+- Deduplicates messages to handle OpenCode's session copying.
+- Stores data in a local SQLite database (`index.db`).
 
-**Menubar App (GUI)**
-- Shows token usage and cost stats in macOS menubar
-- Displays in-context tokens, requests, output tokens, and calculated costs
-- Main window with detailed statistics breakdown
-- Settings dialog for cost configuration and thresholds
-- Custom date range export functionality
-- Async loading with spinner for long operations
+**Menubar / System Tray App**
+- Native UI for macOS (menubar) and Windows (system tray).
+- Shows real-time statistics (tokens, requests, costs).
+- Comprehensive details window with provider/model breakdown.
+- Settings dialog for custom pricing and notification thresholds.
+- Data export functionality (CSV/Clipboard).
+
 
 **Deduplication System**
 - Prevents double-counting when OpenCode copies messages between sessions
@@ -141,14 +144,13 @@ OpenCode Token Meter
 
 ### Starting the App
 
-1. Launch "OpenCode Token Meter" from Applications folder
-2. App icon appears in macOS menubar (top right)
-3. Agent service automatically starts in background
-4. Token data syncs every few seconds
+1. Launch "OpenCode Token Meter".
+2. App icon appears in the macOS menubar (top right) or Windows system tray (bottom right).
+3. The embedded agent automatically starts and begins syncing data.
 
-### Menubar Display
+### Interface Display
 
-The menubar shows up to 6 metrics in a 2×3 grid:
+The application shows up to 6 metrics in a 2×3 grid:
 
 **Row 1:**
 - **In** - Total input tokens
@@ -166,30 +168,11 @@ Row 3 only displays if token/cost thresholds are enabled in Settings.
 
 ### Main Window
 
-Click the menubar icon to open the main window with:
+Click the icon to open the main window with:
 - Detailed statistics
 - Breakdown by provider and model
 - All/Provider/Model view tabs
 - Date range selector for export
-
-### Settings
-
-**Cost Meter Tab:**
-- Select from preset models (Google, etc.)
-- Or select "Custom model" to enter provider/model name manually
-- View and adjust pricing for each model
-
-**Notification Tab:**
-- Enable/disable token usage alerts
-- Set token threshold and cost threshold
-- Optional: customize notification frequency
-
-### Exporting Data
-
-1. Click "Custom Range" in details dialog
-2. Select start and end dates
-3. View statistics for that period
-4. Export to clipboard or file
 
 ---
 
@@ -198,69 +181,38 @@ Click the menubar icon to open the main window with:
 ### Model Pricing
 
 The app includes default pricing for popular providers:
-- **Google**: Gemini 3 models
+- **Google**: Gemini models
 - **OpenCode Zen**: GLM 4.7
-- **Github Copilot**: Claude Sonnet 4.5, GPT 5.2 Codex (Charged by premium requests)
+- **Github Copilot**: Claude and GPT models (Charged by premium requests)
 - **Other**: Any custom provider/model
 
-You can add custom models in Settings → Cost Meter → "Custom model"
+You can add custom models or override default pricing in **Settings → Cost Meter**. Models with custom pricing are marked as **(customized)**.
 
 ### Database
 
-The SQLite database is created automatically at:
-```
-~/Library/Application Support/OpenCode Token Meter/index.db
-```
-
-It contains:
-- Messages table with token counts and metadata
-- Dedup index for fast queries
-- View tracking and session information
+The SQLite database (`index.db`) is created automatically. It contains:
+- `messages` table with token counts and metadata.
+- `idx_dedup` index for fast deduplication.
+- View tracking and session information.
 
 ---
 
 ## Troubleshooting
 
-### Agent Not Starting
-
-If the agent fails to start:
-
-1. Check if message directory exists:
-   ```bash
-   ls -la ~/.local/share/opencode/storage/message/
-   ```
-
-2. Verify socket path is writable:
-   ```bash
-   ls -la ~/Library/Application\ Support/OpenCode\ Token\ Meter/
-   ```
-
-3. Check system logs:
-   ```bash
-   log stream --predicate 'process == "opencode-agent"'
-   ```
-
 ### No Token Data Showing
 
-1. Ensure OpenCode messages exist:
-   ```bash
-   ls ~/.local/share/opencode/storage/message/*/
-   ```
+1. **Verify OpenCode Messages**: Ensure messages exist in the scan directory.
+2. **Check Database**: Use `sqlite3` to verify the `index.db` content.
+3. **Restart the App**: Quit and relaunch to re-initialize the background agent.
 
-2. Check database:
-   ```bash
-   sqlite3 ~/Library/Application\ Support/OpenCode\ Token\ Meter/index.db "SELECT COUNT(*) FROM messages;"
-   ```
+### Windows: App Not Appearing in Tray
 
-3. Restart the app (quit and relaunch)
+- Ensure no other instance is running.
+- Check Task Manager for `OpenCodeTokenMeter.exe`.
 
-### App Crashes
+### macOS: App Blocked by Security
 
-Please report issues with:
-- macOS version
-- App version number
-- Steps to reproduce
-- System logs
+- Go to System Settings → Privacy & Security and allow the app to run.
 
 ---
 
@@ -273,32 +225,33 @@ Please report issues with:
 git clone https://github.com/chw0n9/opencode-token-meter.git
 cd opencode-token-meter
 
-# Read developer guide
+# Read developer guide for platform-specific instructions
 cat AGENTS.md
 ```
 
 ### Running in Development
 
 ```bash
-# Terminal 1: Run agent
-cd App/agent
-python3 -m agent
-
-# Terminal 2: Run menubar app
+# From the project root
 cd App/menubar
-python3 -m menubar
+python -m menubar
 ```
 
 ### Building for Distribution
 
+**Windows:**
+```powershell
+.\build_windows.bat
+```
+
+**macOS:**
 ```bash
 ./build.sh
-# DMG will be at: build/OpenCodeTokenMeter-1.0.0.dmg
 ```
 
 ### Code Style
 
-- Python 3.12+
+- Python 3.9+
 - Follow PEP 8 with Black (88 char line width)
 - Use isort for import organization
 - Type hints for public APIs
@@ -310,10 +263,10 @@ See [AGENTS.md](AGENTS.md) for complete developer guidelines.
 
 ## Database Safety
 
-- All SQL queries use parameterized placeholders (`?`) to prevent injection
-- SQLite with WAL mode for safe concurrent access
-- Deduplication query prevents double-counting messages
-- All data stored locally (no network transmission)
+- All SQL queries use parameterized placeholders (`?`) to prevent injection.
+- SQLite with WAL mode for safe concurrent access.
+- Deduplication query prevents double-counting messages across sessions.
+- All data stored locally (no network transmission).
 
 ---
 
@@ -333,13 +286,9 @@ Developed entirely with [OpenCode](https://opencode.ai) - an AI-powered terminal
 
 ## Screenshots
 
-[SCREENSHOTS PLACEHOLDER]
-
-*Add screenshots here:*
-- Menubar display with token metrics
-- Main window with detailed statistics
-- Settings dialog with model selection
-- Custom range export dialog
+- **Menubar Display (macOS)**: 2×3 grid with token metrics.
+- **Main Window**: Detailed statistics and model breakdown.
+- **Settings Dialog**: Model pricing and threshold configuration.
 
 ---
 
@@ -353,3 +302,4 @@ Developed entirely with [OpenCode](https://opencode.ai) - an AI-powered terminal
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+
