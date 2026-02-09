@@ -605,11 +605,11 @@ class OpenCodeTokenMeter:
         
         # Window actions
         show_window_action = QAction("Show Main Window", self.menu)
-        show_window_action.triggered.connect(self.show_main_window)
+        show_window_action.triggered.connect(self._launch_webview_ui)
         self.menu.addAction(show_window_action)
         
         details_action = QAction("Show Details", self.menu)
-        details_action.triggered.connect(self.show_details)
+        details_action.triggered.connect(self._launch_webview_ui)
         self.menu.addAction(details_action)
         
         # Export CSV submenu
@@ -654,6 +654,26 @@ class OpenCodeTokenMeter:
         self.menu.addAction(quit_action)
         
         self.tray_icon.setContextMenu(self.menu)
+
+    def _launch_webview_ui(self):
+        """Launch the modern Webview UI as a separate process"""
+        try:
+            # Path to main.py in webview_ui
+            webview_main_path = os.path.join(os.path.dirname(__file__), "..", "..", "webview_ui", "main.py")
+            webview_main_path = os.path.abspath(webview_main_path)
+            
+            print(f"Launching Web UI: {webview_main_path}")
+            
+            # Launch as subprocess
+            subprocess.Popen(
+                [sys.executable, webview_main_path],
+                cwd=os.path.dirname(webview_main_path),
+                start_new_session=True
+            )
+        except Exception as e:
+            print(f"Failed to launch Web UI: {e}")
+            # Fallback to showing error notification
+            self._show_notification("Error", f"Could not launch dashboard: {e}", QSystemTrayIcon.MessageIcon.Warning)
     
     def _format_tokens_k(self, num):
         if num is None or num == 0:

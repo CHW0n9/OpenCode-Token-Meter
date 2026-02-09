@@ -73,10 +73,22 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
     
     -- Deduplication index for faster model-specific cost calculations
-    CREATE INDEX IF NOT EXISTS idx_dedup ON messages(ts, role, input, output, reasoning, cache_read, cache_write);
+    CREATE INDEX IF NOT EXISTS idx_dedup_v2 ON messages(ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id);
     """)
     conn.commit()
     conn.close()
+
+def is_db_populated():
+    """Check if the database has any messages"""
+    conn = get_conn()
+    c = conn.cursor()
+    try:
+        c.execute("SELECT 1 FROM messages LIMIT 1")
+        return c.fetchone() is not None
+    except:
+        return False
+    finally:
+        conn.close()
 
 def insert_message(msg):
     """Insert or replace a message record"""
@@ -96,46 +108,55 @@ def insert_message(msg):
     conn.commit()
     conn.close()
 
+def _normalize_mtime_ns(value):
+    if value is None:
+        return None
+    try:
+        v = int(value)
+    except (TypeError, ValueError):
+        return None
+    # seconds -> ns
+    if v < 1_000_000_000_000:
+        return v * 1_000_000_000
+    # milliseconds -> ns
+    if v < 1_000_000_000_000_000:
+        return v * 1_000_000
+    # microseconds -> ns
+    if v < 1_000_000_000_000_000_000:
+        return v * 1_000
+    return v
+
+
 def get_file_mtime(path):
-    """Get last modification time of a file from database"""
+    """Get last modification time (ns) of a file from database"""
     conn = get_conn()
     c = conn.cursor()
     c.execute("SELECT mtime FROM files WHERE path = ?", (path,))
     row = c.fetchone()
     conn.close()
-    return row[0] if row else None
+    return _normalize_mtime_ns(row[0]) if row else None
 
-def update_file_mtime(path, mtime):
-    """Update or insert file modification time in database"""
+def update_file_mtime(path, mtime_ns):
+    """Update or insert file modification time (ns) in database"""
     conn = get_conn()
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO files (path, mtime) VALUES (?, ?)", (path, mtime))
+    c.execute("INSERT OR REPLACE INTO files (path, mtime) VALUES (?, ?)", (path, int(mtime_ns)))
     conn.commit()
     conn.close()
 
 def _get_deduplicated_messages_subquery(where_clause=""):
     """
     Generate SQL subquery for deduplicated messages.
-    Deduplication is based on: ts, role, input, output, reasoning, cache_read, cache_write
-    Note: provider_id and model_id are EXCLUDED from the GROUP BY to prevent double-counting
-    when the same message is recorded once with metadata and once without (e.g. from different scan passes).
-    
-    Priority for picking the canonical record:
-    1. Prefer records that have provider_id/model_id.
-    2. Then pick the record with the lexicographically smallest msg_id.
+    Deduplication is based on: ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id.
+    Canonical record is the lexicographically smallest msg_id within each group.
     """
     base_where = f"WHERE {where_clause}" if where_clause else ""
-    # We use a subquery with ORDER BY to ensure that when we GROUP BY, 
-    # we pick the record that has provider_id and model_id if available.
-    # In SQLite, GROUP BY returns the FIRST row for each group. 
-    # By ordering by provider_id presence first, we ensure the row with metadata is the "first" one.
     return f"""
     (SELECT * FROM (
-        SELECT * FROM messages {base_where} 
-        ORDER BY (CASE WHEN provider_id IS NOT NULL AND provider_id != '' THEN 0 ELSE 1 END) ASC, 
-                 msg_id ASC
+        SELECT * FROM messages {base_where}
+        ORDER BY msg_id ASC
      )
-     GROUP BY ts, role, input, output, reasoning, cache_read, cache_write)
+     GROUP BY ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id)
     """
 
 def aggregate(scope):
@@ -146,20 +167,20 @@ def aggregate(scope):
     if scope == "today":
         # Get start of today in local timezone as UTC timestamp
         today_start = get_local_day_start_ts()
-        subquery = _get_deduplicated_messages_subquery(f"ts >= {today_start}")
+        subquery = _get_deduplicated_messages_subquery("ts >= ?")
         c.execute(f"""
         SELECT SUM(input), SUM(output), SUM(reasoning), SUM(cache_read), SUM(cache_write)
         FROM {subquery}
-        """)
+        """, (today_start,))
     elif scope == "7days":
         # 7 days ago from start of today
         today_start = get_local_day_start_ts()
         seven_days_ago = today_start - (7 * 24 * 3600)
-        subquery = _get_deduplicated_messages_subquery(f"ts >= {seven_days_ago}")
+        subquery = _get_deduplicated_messages_subquery("ts >= ?")
         c.execute(f"""
         SELECT SUM(input), SUM(output), SUM(reasoning), SUM(cache_read), SUM(cache_write)
         FROM {subquery}
-        """)
+        """, (seven_days_ago,))
     elif scope == "month":
         # Start of current month in local timezone
         now = time.time()
@@ -173,11 +194,11 @@ def aggregate(scope):
             local_time.tm_isdst
         ))
         month_start = int(time.mktime(month_start_struct))
-        subquery = _get_deduplicated_messages_subquery(f"ts >= {month_start}")
+        subquery = _get_deduplicated_messages_subquery("ts >= ?")
         c.execute(f"""
         SELECT SUM(input), SUM(output), SUM(reasoning), SUM(cache_read), SUM(cache_write)
         FROM {subquery}
-        """)
+        """, (month_start,))
     elif scope == "current_session":
         # Get the session with the most recent message
         c.execute("SELECT session_id FROM messages ORDER BY ts DESC LIMIT 1")
@@ -187,11 +208,11 @@ def aggregate(scope):
             return (0, 0, 0, 0, 0)
         session_id = row[0]
         # For current_session, we use the session_id to filter, then deduplicate
-        subquery = _get_deduplicated_messages_subquery(f"session_id='{session_id}'")
+        subquery = _get_deduplicated_messages_subquery("session_id = ?")
         c.execute(f"""
         SELECT SUM(input), SUM(output), SUM(reasoning), SUM(cache_read), SUM(cache_write)
         FROM {subquery}
-        """)
+        """, (session_id,))
     else:
         conn.close()
         return (0, 0, 0, 0, 0)
@@ -266,12 +287,12 @@ def aggregate_range(start_ts, end_ts):
     conn = get_conn()
     c = conn.cursor()
     
-    where_filter = f"ts >= {start_ts} AND ts < {end_ts}"
+    where_filter = "ts >= ? AND ts < ?"
     subquery = _get_deduplicated_messages_subquery(where_filter)
     c.execute(f"""
     SELECT SUM(input), SUM(output), SUM(reasoning), SUM(cache_read), SUM(cache_write)
     FROM {subquery}
-    """)
+    """, (start_ts, end_ts))
     
     res = c.fetchone()
     conn.close()
@@ -303,10 +324,10 @@ def get_message_count_range(start_ts, end_ts):
     
     token_filter = "(input > 0 OR output > 0 OR reasoning > 0 OR cache_read > 0 OR cache_write > 0)"
     role_filter = "role = 'assistant'"
-    where_filter = f"ts >= {start_ts} AND ts < {end_ts} AND {role_filter} AND {token_filter}"
+    where_filter = f"ts >= ? AND ts < ? AND {role_filter} AND {token_filter}"
     
     subquery = _get_deduplicated_messages_subquery(where_filter)
-    c.execute(f"SELECT COUNT(*) FROM {subquery}")
+    c.execute(f"SELECT COUNT(*) FROM {subquery}", (start_ts, end_ts))
     
     res = c.fetchone()
     conn.close()
@@ -319,10 +340,10 @@ def get_request_count_range(start_ts, end_ts):
     c = conn.cursor()
     
     role_filter = "role = 'user'"
-    where_filter = f"ts >= {start_ts} AND ts < {end_ts} AND {role_filter}"
+    where_filter = f"ts >= ? AND ts < ? AND {role_filter}"
     
     subquery = _get_deduplicated_messages_subquery(where_filter)
-    c.execute(f"SELECT COUNT(*) FROM {subquery}")
+    c.execute(f"SELECT COUNT(*) FROM {subquery}", (start_ts, end_ts))
     
     res = c.fetchone()
     conn.close()
@@ -344,11 +365,13 @@ def get_message_count(scope='today'):
     
     if scope == 'today':
         today_start = get_local_day_start_ts()
-        where_filter = f"ts >= {today_start} AND {role_filter} AND {token_filter}"
+        where_filter = f"ts >= ? AND {role_filter} AND {token_filter}"
+        params = (today_start,)
     elif scope == '7days':
         today_start = get_local_day_start_ts()
         seven_days_ago = today_start - (7 * 24 * 3600)
-        where_filter = f"ts >= {seven_days_ago} AND {role_filter} AND {token_filter}"
+        where_filter = f"ts >= ? AND {role_filter} AND {token_filter}"
+        params = (seven_days_ago,)
     elif scope == 'month':
         now = time.time()
         local_time = time.localtime(now)
@@ -361,7 +384,8 @@ def get_message_count(scope='today'):
             local_time.tm_isdst
         ))
         month_start = int(time.mktime(month_start_struct))
-        where_filter = f"ts >= {month_start} AND {role_filter} AND {token_filter}"
+        where_filter = f"ts >= ? AND {role_filter} AND {token_filter}"
+        params = (month_start,)
     elif scope == 'current_session':
         c.execute("SELECT session_id FROM messages ORDER BY ts DESC LIMIT 1")
         row = c.fetchone()
@@ -369,13 +393,15 @@ def get_message_count(scope='today'):
             conn.close()
             return 0
         session_id = row[0]
-        where_filter = f"session_id='{session_id}' AND {role_filter} AND {token_filter}"
+        where_filter = f"session_id = ? AND {role_filter} AND {token_filter}"
+        params = (session_id,)
     else:
         where_filter = f"{role_filter} AND {token_filter}"
+        params = ()
     
     # Use deduplicated subquery
     subquery = _get_deduplicated_messages_subquery(where_filter)
-    c.execute(f"SELECT COUNT(*) FROM {subquery}")
+    c.execute(f"SELECT COUNT(*) FROM {subquery}", params)
     
     res = c.fetchone()
     conn.close()
@@ -395,11 +421,13 @@ def get_request_count(scope='today'):
     
     if scope == 'today':
         today_start = get_local_day_start_ts()
-        where_filter = f"ts >= {today_start} AND {role_filter}"
+        where_filter = f"ts >= ? AND {role_filter}"
+        params = (today_start,)
     elif scope == '7days':
         today_start = get_local_day_start_ts()
         seven_days_ago = today_start - (7 * 24 * 3600)
-        where_filter = f"ts >= {seven_days_ago} AND {role_filter}"
+        where_filter = f"ts >= ? AND {role_filter}"
+        params = (seven_days_ago,)
     elif scope == 'month':
         now = time.time()
         local_time = time.localtime(now)
@@ -412,7 +440,8 @@ def get_request_count(scope='today'):
             local_time.tm_isdst
         ))
         month_start = int(time.mktime(month_start_struct))
-        where_filter = f"ts >= {month_start} AND {role_filter}"
+        where_filter = f"ts >= ? AND {role_filter}"
+        params = (month_start,)
     elif scope == 'current_session':
         c.execute("SELECT session_id FROM messages ORDER BY ts DESC LIMIT 1")
         row = c.fetchone()
@@ -420,13 +449,15 @@ def get_request_count(scope='today'):
             conn.close()
             return 0
         session_id = row[0]
-        where_filter = f"session_id='{session_id}' AND {role_filter}"
+        where_filter = f"session_id = ? AND {role_filter}"
+        params = (session_id,)
     else:
         where_filter = role_filter
+        params = ()
     
     # Use deduplicated subquery
     subquery = _get_deduplicated_messages_subquery(where_filter)
-    c.execute(f"SELECT COUNT(*) FROM {subquery}")
+    c.execute(f"SELECT COUNT(*) FROM {subquery}", params)
     
     res = c.fetchone()
     conn.close()
@@ -485,11 +516,13 @@ def aggregate_by_provider(scope):
     # Build WHERE clause based on scope
     if scope == "today":
         today_start = get_local_day_start_ts()
-        where_filter = f"ts >= {today_start}"
+        where_filter = "ts >= ?"
+        params = (today_start,)
     elif scope == "7days":
         today_start = get_local_day_start_ts()
         seven_days_ago = today_start - (7 * 24 * 3600)
-        where_filter = f"ts >= {seven_days_ago}"
+        where_filter = "ts >= ?"
+        params = (seven_days_ago,)
     elif scope == "month":
         now = time.time()
         local_time = time.localtime(now)
@@ -502,7 +535,8 @@ def aggregate_by_provider(scope):
             local_time.tm_isdst
         ))
         month_start = int(time.mktime(month_start_struct))
-        where_filter = f"ts >= {month_start}"
+        where_filter = "ts >= ?"
+        params = (month_start,)
     elif scope == "current_session":
         # Get the most recent session
         c.execute("SELECT session_id FROM messages ORDER BY ts DESC LIMIT 1")
@@ -511,9 +545,11 @@ def aggregate_by_provider(scope):
             conn.close()
             return {}
         session_id = row[0]
-        where_filter = f"session_id = '{session_id}'"
+        where_filter = "session_id = ?"
+        params = (session_id,)
     else:
         where_filter = "1=1"
+        params = ()
     
     # Use deduplicated subquery and aggregate by provider
     subquery = _get_deduplicated_messages_subquery(where_filter)
@@ -526,7 +562,7 @@ def aggregate_by_provider(scope):
            COUNT(CASE WHEN role='user' THEN 1 END) as requests
     FROM {subquery}
     GROUP BY provider_id
-    """)
+    """, params)
     
     result = {}
     for row in c.fetchall():
@@ -557,11 +593,13 @@ def aggregate_by_model(scope):
     # Build WHERE clause based on scope
     if scope == "today":
         today_start = get_local_day_start_ts()
-        where_filter = f"ts >= {today_start}"
+        where_filter = "ts >= ?"
+        params = (today_start,)
     elif scope == "7days":
         today_start = get_local_day_start_ts()
         seven_days_ago = today_start - (7 * 24 * 3600)
-        where_filter = f"ts >= {seven_days_ago}"
+        where_filter = "ts >= ?"
+        params = (seven_days_ago,)
     elif scope == "month":
         now = time.time()
         local_time = time.localtime(now)
@@ -574,7 +612,8 @@ def aggregate_by_model(scope):
             local_time.tm_isdst
         ))
         month_start = int(time.mktime(month_start_struct))
-        where_filter = f"ts >= {month_start}"
+        where_filter = "ts >= ?"
+        params = (month_start,)
     elif scope == "current_session":
         # Get the most recent session
         c.execute("SELECT session_id FROM messages ORDER BY ts DESC LIMIT 1")
@@ -583,9 +622,11 @@ def aggregate_by_model(scope):
             conn.close()
             return {}
         session_id = row[0]
-        where_filter = f"session_id = '{session_id}'"
+        where_filter = "session_id = ?"
+        params = (session_id,)
     else:
         where_filter = "1=1"
+        params = ()
     
     # Use deduplicated subquery and aggregate by provider and model
     subquery = _get_deduplicated_messages_subquery(where_filter)
@@ -598,7 +639,7 @@ def aggregate_by_model(scope):
            COUNT(CASE WHEN role='user' THEN 1 END) as requests
     FROM {subquery}
     GROUP BY provider_id, model_id
-    """)
+    """, params)
     
     result = {}
     for row in c.fetchall():
@@ -651,7 +692,7 @@ def aggregate_by_model_range(start_ts, end_ts):
     print(f"[DB_DEBUG]   DB ts range: min={ts_range[0]}, max={ts_range[1]}", file=sys.stderr)
     
     # Build WHERE clause for time range
-    where_filter = f"ts >= {start_ts} AND ts < {end_ts}"
+    where_filter = "ts >= ? AND ts < ?"
     print(f"[DB_DEBUG]   where_filter: {where_filter}", file=sys.stderr)
     
     # Use deduplicated subquery and aggregate by provider and model
@@ -668,7 +709,7 @@ def aggregate_by_model_range(start_ts, end_ts):
     GROUP BY provider_id, model_id
     """
     print(f"[DB_DEBUG]   Executing query...", file=sys.stderr)
-    c.execute(query)
+    c.execute(query, (start_ts, end_ts))
     
     result = {}
     rows = c.fetchall()
@@ -695,5 +736,3 @@ def aggregate_by_model_range(start_ts, end_ts):
     conn.close()
     print(f"[DB_DEBUG]   Returning result with {len(result)} providers", file=sys.stderr)
     return result
-
-

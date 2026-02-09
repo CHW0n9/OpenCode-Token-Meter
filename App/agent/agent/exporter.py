@@ -22,26 +22,30 @@ def export_csv(out_path, scope='this_month'):
     
     # Build where clause based on scope (matching db.py logic)
     where_filter = ""
+    params = []
     import time as pytime
     from agent.db import get_local_day_start_ts
     
     if scope == 'today':
-        where_filter = f"ts >= {get_local_day_start_ts()}"
+        where_filter = "ts >= ?"
+        params = [get_local_day_start_ts()]
     elif scope == '7days':
-        where_filter = f"ts >= {get_local_day_start_ts() - (7 * 24 * 3600)}"
+        where_filter = "ts >= ?"
+        params = [get_local_day_start_ts() - (7 * 24 * 3600)]
     elif scope == 'this_month':
         now = pytime.time()
         local_time = pytime.localtime(now)
         month_start_struct = pytime.struct_time((
             local_time.tm_year, local_time.tm_mon, 1, 0, 0, 0, 0, 0, local_time.tm_isdst
         ))
-        where_filter = f"ts >= {int(pytime.mktime(month_start_struct))}"
+        where_filter = "ts >= ?"
+        params = [int(pytime.mktime(month_start_struct))]
     
     # Get deduplicated messages
     subquery = _get_deduplicated_messages_subquery(where_filter)
     conn = get_conn()
     c = conn.cursor()
-    c.execute(f"SELECT session_id, msg_id, ts, input, output, reasoning, cache_read, cache_write, model, provider_id, model_id, role FROM {subquery} ORDER BY ts")
+    c.execute(f"SELECT session_id, msg_id, ts, input, output, reasoning, cache_read, cache_write, model, provider_id, model_id, role FROM {subquery} ORDER BY ts", params)
     rows = c.fetchall()
     conn.close()
     
@@ -89,11 +93,11 @@ def export_csv_range(out_path, start_ts, end_ts):
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     
     # Get deduplicated messages from database for custom range
-    where_filter = f"ts >= {start_ts} AND ts < {end_ts}"
+    where_filter = "ts >= ? AND ts < ?"
     subquery = _get_deduplicated_messages_subquery(where_filter)
     conn = get_conn()
     c = conn.cursor()
-    c.execute(f"SELECT session_id, msg_id, ts, input, output, reasoning, cache_read, cache_write, model, provider_id, model_id, role FROM {subquery} ORDER BY ts")
+    c.execute(f"SELECT session_id, msg_id, ts, input, output, reasoning, cache_read, cache_write, model, provider_id, model_id, role FROM {subquery} ORDER BY ts", (start_ts, end_ts))
     rows = c.fetchall()
     conn.close()
     

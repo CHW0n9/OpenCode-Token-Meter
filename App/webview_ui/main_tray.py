@@ -19,15 +19,24 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agent"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "menubar"))
 
 try:
-    from .backend.tray_rumps import TrayManager
+    if platform.system() == "Darwin":
+        from .backend.tray_rumps import TrayManager
+    else:
+        from .backend.tray import TrayManager
 except ImportError:
-    from backend.tray_rumps import TrayManager
+    if platform.system() == "Darwin":
+        from backend.tray_rumps import TrayManager
+    else:
+        from backend.tray import TrayManager
 
 # Import agent config for socket paths - THIS IS THE CORRECT WAY
 from agent.config import BASE_DIR, SOCKET_PATH, TCP_HOST, TCP_PORT, USE_TCP
+from menubar.settings import Settings
 
 # PID file to track webview process
 WEBVIEW_PID_FILE = os.path.join(BASE_DIR, "webview.pid")
+STATS_WORKER_PID_FILE = os.path.join(BASE_DIR, "stats_worker.pid")
+STATS_FILE = os.path.join(BASE_DIR, "tray_stats.json")
 NAV_FILE = os.path.join(BASE_DIR, "nav.json")
 
 
@@ -39,6 +48,8 @@ class TrayAppWithSubprocess:
         self.webview_process = None
         self.platform = platform.system()
         self.agent_client = None
+        self._cleanup_called = False
+        self._stats_log_file = None
         
     def cleanup_stale_socket(self):
         """Remove stale socket files before starting agent"""
@@ -88,7 +99,44 @@ class TrayAppWithSubprocess:
         
         print("[INFO] Agent not running, attempting to start...")
         
-        # Agent paths - from webview_ui perspective
+        # Check if running in PyInstaller bundle
+        if getattr(sys, 'frozen', False):
+            print("[INFO] Detected PyInstaller bundle - starting embedded agent module")
+            try:
+                # In frozen mode, the agent module is embedded in the executable
+                # We can run it by invoking the executable with -m agent
+                # However, since we are the executable, we need a way to tell main to run agent
+                # So we use a flag --run-agent which we will implement in __main__.py
+                
+                # Verify agent module is importable
+                import agent
+                print(f"[INFO] Agent module found: {agent.__file__}")
+                
+                # Log agent output to file for debugging
+                log_path = os.path.expanduser("~/Library/Application Support/OpenCode Token Meter/agent_subprocess.log")
+                os.makedirs(os.path.dirname(log_path), exist_ok=True)
+                log_file = open(log_path, "w")
+                
+                proc = subprocess.Popen(
+                    [sys.executable, "--agent"],
+                    start_new_session=True,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT
+                )
+                print(f"[INFO] Embedded agent process started with PID: {proc.pid}")
+                
+                # Wait for agent to initialize
+                time.sleep(3)
+                
+                if self._is_agent_online():
+                    print("[INFO] Embedded agent started successfully")
+                    return True
+                else:
+                    print("[WARN] Embedded agent started but not online yet")
+            except Exception as e:
+                print(f"[ERROR] Failed to start embedded agent: {e}")
+
+        # Development mode - look for source paths
         # webview_ui/.. = App/
         app_dir = os.path.dirname(__file__)
         agent_parent = os.path.dirname(app_dir)  # App/
@@ -101,29 +149,28 @@ class TrayAppWithSubprocess:
         ]
         
         for agent_path in agent_paths:
-            agent_main = os.path.join(agent_path, "agent", "__main__.py")
-            print(f"[DEBUG] Checking agent path: {agent_path}, exists: {os.path.exists(agent_path)}")
-            
-            if os.path.exists(agent_path):
-                print(f"[INFO] Starting agent from: {agent_path}")
-                try:
-                    proc = subprocess.Popen(
-                        [sys.executable, "-m", "agent"],
-                        cwd=agent_path,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        start_new_session=True
-                    )
-                    print(f"[DEBUG] Agent process started with PID: {proc.pid}")
-                    
-                    # Wait for agent to initialize
-                    time.sleep(3)
-                    
-                    if self._is_agent_online():
-                        print("[INFO] Agent started successfully")
-                        return True
-                except Exception as e:
-                    print(f"[WARN] Failed to start agent from {agent_path}: {e}")
+            if not os.path.exists(agent_path):
+                continue
+                
+            print(f"[INFO] Starting agent from: {agent_path}")
+            try:
+                proc = subprocess.Popen(
+                    [sys.executable, "-m", "agent"],
+                    cwd=agent_path,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True
+                )
+                print(f"[DEBUG] Agent process started with PID: {proc.pid}")
+                
+                # Wait for agent to initialize
+                time.sleep(3)
+                
+                if self._is_agent_online():
+                    print("[INFO] Agent started successfully")
+                    return True
+            except Exception as e:
+                print(f"[WARN] Failed to start agent from {agent_path}: {e}")
         
         print("[WARN] Could not start agent - will retry when window opens")
         return False
@@ -172,6 +219,39 @@ class TrayAppWithSubprocess:
                 os.remove(WEBVIEW_PID_FILE)
         except:
             pass
+
+    def _get_stats_worker_pid(self):
+        """Get stored stats worker PID"""
+        try:
+            if os.path.exists(STATS_WORKER_PID_FILE):
+                with open(STATS_WORKER_PID_FILE, 'r') as f:
+                    return int(f.read().strip())
+        except:
+            pass
+        return None
+
+    def _save_stats_worker_pid(self, pid):
+        """Store stats worker PID"""
+        os.makedirs(BASE_DIR, exist_ok=True)
+        with open(STATS_WORKER_PID_FILE, 'w') as f:
+            f.write(str(pid))
+
+    def _clear_stats_worker_pid(self):
+        """Clear stored stats worker PID"""
+        try:
+            if os.path.exists(STATS_WORKER_PID_FILE):
+                os.remove(STATS_WORKER_PID_FILE)
+        except:
+            pass
+
+    def _is_pid_running(self, pid):
+        if pid is None:
+            return False
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
     
     def _is_webview_running(self):
         """Check if webview process is still running"""
@@ -184,6 +264,69 @@ class TrayAppWithSubprocess:
         except OSError:
             self._clear_webview_pid()
             return False
+
+    def _start_stats_worker(self):
+        """Start stats worker process if not running"""
+        pid = self._get_stats_worker_pid()
+        if pid and self._is_pid_running(pid):
+            return
+        if pid:
+            self._clear_stats_worker_pid()
+
+        app_dir = os.path.dirname(__file__)
+        app_parent = os.path.dirname(app_dir)
+
+        if getattr(sys, 'frozen', False):
+            cmd = [sys.executable, "--stats-worker"]
+            env = None
+            cwd = app_parent
+        else:
+            module_name = "webview_ui"
+            cwd = app_parent
+            env = os.environ.copy()
+
+            # If running from repo root with App/ package, use App.webview_ui
+            if os.path.basename(app_parent) == "App" and os.path.exists(os.path.join(app_parent, "__init__.py")):
+                repo_root = os.path.dirname(app_parent)
+                module_name = "App.webview_ui"
+                cwd = repo_root
+                env["PYTHONPATH"] = os.pathsep.join([repo_root, env.get("PYTHONPATH", "")])
+            else:
+                env["PYTHONPATH"] = os.pathsep.join([app_parent, env.get("PYTHONPATH", "")])
+
+            cmd = [sys.executable, "-m", module_name, "--stats-worker"]
+
+        try:
+            os.makedirs(BASE_DIR, exist_ok=True)
+            log_path = os.path.join(BASE_DIR, "stats_worker.log")
+            self._stats_log_file = open(log_path, "a", encoding="utf-8")
+            proc = subprocess.Popen(
+                cmd,
+                cwd=cwd,
+                stdout=self._stats_log_file,
+                stderr=self._stats_log_file,
+                start_new_session=True,
+                env=env
+            )
+            self._save_stats_worker_pid(proc.pid)
+        except Exception as e:
+            print(f"[WARN] Failed to start stats worker: {e}")
+
+    def cleanup_stats_worker(self):
+        """Terminate stats worker process"""
+        pid = self._get_stats_worker_pid()
+        if pid is None:
+            return
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except Exception:
+            pass
+        self._clear_stats_worker_pid()
+        try:
+            if self._stats_log_file:
+                self._stats_log_file.close()
+        except Exception:
+            pass
     
     def _write_nav_file(self, page):
         """Write navigation command to file for webview to read"""
@@ -211,30 +354,42 @@ class TrayAppWithSubprocess:
             else:
                 self.webview_process = None
 
-        # Get the current script path
-        if hasattr(sys, 'frozen'):
-            webview_script = os.path.join(os.path.dirname(sys.executable), '..', 'Resources', 'webview_runner.py')
-        else:
-            webview_script = os.path.join(os.path.dirname(__file__), 'webview_runner.py')
-
-        if not os.path.exists(webview_script):
-            print(f"[ERROR] Webview runner script not found: {webview_script}")
-            return
-
         # Build command with page parameter
-        cmd = [sys.executable, webview_script, '--page', page]
+        if getattr(sys, 'frozen', False):
+            # In frozen mode, call the executable with --webview flag
+            cmd = [sys.executable, '--webview', '--page', page]
+        else:
+            # Get the current script path
+            webview_script = os.path.join(os.path.dirname(__file__), 'webview_runner.py')
+            if not os.path.exists(webview_script):
+                print(f"[ERROR] Webview runner script not found: {webview_script}")
+                return
+            cmd = [sys.executable, webview_script, '--page', page]
+
         if self.debug:
             cmd.append('--debug')
 
-        print(f"[INFO] Starting webview subprocess...")
+        print(f"[INFO] Starting webview subprocess with command: {cmd}")
 
-        # Start subprocess
-        self.webview_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True
-        )
+        # Start subprocess - capture output for debugging in frozen mode
+        if getattr(sys, 'frozen', False):
+            # In frozen mode, log subprocess output to a file
+            log_path = os.path.join(BASE_DIR, "webview_subprocess.log")
+            print(f"[DEBUG] Webview subprocess log: {log_path}")
+            log_file = open(log_path, 'w')
+            self.webview_process = subprocess.Popen(
+                cmd,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                start_new_session=True
+            )
+        else:
+            self.webview_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
 
         # Store PID
         self._save_webview_pid(self.webview_process.pid)
@@ -245,13 +400,23 @@ class TrayAppWithSubprocess:
 
     def cleanup_webview(self):
         """Clean up webview subprocess"""
+        pid = None
         if self.webview_process is not None:
             try:
+                pid = self.webview_process.pid
                 self.webview_process.terminate()
                 self.webview_process.wait(timeout=5)
             except Exception as e:
                 print(f"[WARN] Error cleaning up webview process: {e}")
             self.webview_process = None
+
+        if pid is None:
+            pid = self._get_webview_pid()
+        if pid:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except Exception:
+                pass
         self._clear_webview_pid()
             
     def on_show_window(self, page='dashboard'):
@@ -325,8 +490,32 @@ class TrayAppWithSubprocess:
     def on_quit(self):
         """Called when user requests quit"""
         print("[INFO] Quit requested")
+        self._cleanup_on_exit()
+        # Do NOT call sys.exit(0) here - let rumps handle the exit loop
+        # The TrayManager will call rumps.quit_application() after this callback returns
+
+    def _cleanup_on_exit(self):
+        if self._cleanup_called:
+            return
+        self._cleanup_called = True
         self.cleanup_webview()
-        sys.exit(0)
+        self.cleanup_stats_worker()
+        try:
+            msg = json.dumps({"cmd": "shutdown"}) + "\n"
+            if USE_TCP:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                sock.connect((TCP_HOST, TCP_PORT))
+                sock.sendall(msg.encode())
+                sock.close()
+            else:
+                sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                sock.connect(SOCKET_PATH)
+                sock.sendall(msg.encode())
+                sock.close()
+        except Exception:
+            pass
         
     def run(self):
         """Run the application"""
@@ -337,20 +526,24 @@ class TrayAppWithSubprocess:
         
         # Ensure agent is running before starting tray
         self._ensure_agent_running()
+        self._start_stats_worker()
+
+        atexit.register(self._cleanup_on_exit)
         
         # Create and run tray with all callbacks
+        settings = Settings()
+        refresh_interval = settings.get("refresh_interval", 5)
+        notifications_enabled = settings.get("notifications_enabled", True)
         tray = TrayManager(
-            api=None,
             on_show=self.on_show_window,
-            on_refresh=self.on_refresh,
             on_quit=self.on_quit,
-            on_details=self.on_details,
-            on_export=self.on_export,
-            on_settings=self.on_settings,
-            on_reconnect=self.on_reconnect,
-            on_navigate=self.on_show_window
+            notifications_enabled=notifications_enabled
         )
-        
+        try:
+            refresh_interval = max(1, int(refresh_interval))
+        except (TypeError, ValueError):
+            refresh_interval = 5
+        tray.start_auto_update(STATS_FILE, interval=refresh_interval)
         tray.run()
 
 

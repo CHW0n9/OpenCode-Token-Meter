@@ -21,7 +21,7 @@ os.makedirs(BASE_DIR, exist_ok=True)
 
 DB_PATH = os.path.join(BASE_DIR, "index.db")
 LOCKFILE_PATH = os.path.join(BASE_DIR, "agent.lock")
-LOG_PATH = os.path.join(BASE_DIR, "agent.log")
+# LOG_PATH = os.path.join(BASE_DIR, "agent.log")
 
 # Message storage root - OpenCode uses .local/share on all platforms including Windows
 MSG_ROOT = os.path.join(os.path.expanduser("~"), ".local", "share", "opencode", "storage", "message")
@@ -33,3 +33,4 @@ TCP_PORT = int(os.environ.get("OPENCODE_AGENT_PORT", "50899"))
 SOCKET_PATH = os.path.join(BASE_DIR, "agent.sock")  # Used on Unix systems
 
 REFRESH_INTERVAL_SECONDS = 300  # 5 minutes
+TRIGGER_FILE = os.path.join(BASE_DIR, "refresh_trigger")

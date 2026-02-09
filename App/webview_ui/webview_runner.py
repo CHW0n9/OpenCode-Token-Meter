@@ -8,8 +8,10 @@ import json
 import threading
 import atexit
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "menubar"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "agent"))
+# Only add dev paths if not frozen
+if not getattr(sys, 'frozen', False):
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "menubar"))
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "agent"))
 
 try:
     from agent.config import BASE_DIR
@@ -50,6 +52,11 @@ except ImportError:
 
 
 def get_web_dir():
+    if getattr(sys, 'frozen', False):
+        # In cached bundle
+        # sys.executable is .../Contents/MacOS/OpenCode Token Meter
+        # Web files are in .../Contents/Resources/webview_ui/web
+        return os.path.join(os.path.dirname(sys.executable), "..", "Resources", "webview_ui", "web")
     return os.path.join(os.path.dirname(__file__), "web")
 
 
@@ -128,6 +135,10 @@ def main(debug=False, initial_page='dashboard'):
         
         api = JsApi()
         window = create_window(api, debug=debug, initial_page=initial_page)
+        
+        # Pass window to API for dialogs
+        if hasattr(api, 'set_window'):
+            api.set_window(window)
         
         # Define callback for when webview is ready
         def on_webview_ready():

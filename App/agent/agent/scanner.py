@@ -106,14 +106,14 @@ class Scanner:
                 
                 path = os.path.join(ses_dir, fn)
                 
-                # Get file modification time
+                # Get file modification time in ns
                 try:
-                    file_mtime = int(os.path.getmtime(path))
-                except:
+                    file_mtime = os.stat(path).st_mtime_ns
+                except Exception:
                     continue
                 
                 # Quick start optimization: skip old files
-                if quick_start and file_mtime < cutoff_time:
+                if quick_start and (file_mtime // 1_000_000_000) < cutoff_time:
                     continue
                 
                 # Check if we should skip this file (incremental scan)

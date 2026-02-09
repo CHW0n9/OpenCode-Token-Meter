@@ -30,6 +30,8 @@ SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 
 DEFAULT_SETTINGS = {
     "version": "1.0.1",  # App version - update this when releasing new versions
+    "timezone": "local", # "local", "UTC", or specific timezone string like "Asia/Hong_Kong"
+    "default_time_scope": "week", # Default dashboard view: "today", "week", "month", "all"
     "prices": {
         "default": {
             "input": 0.5,      # $ per 1M tokens (Gemini 3 Flash default)
@@ -203,6 +205,10 @@ class Settings:
             except:
                 pass
         return copy.deepcopy(DEFAULT_SETTINGS)
+
+    def reload(self):
+        """Reload settings from file"""
+        self.settings = self._load()
     
     def _deep_merge(self, base, override):
         """Deep merge two dictionaries"""
