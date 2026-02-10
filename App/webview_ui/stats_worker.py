@@ -7,11 +7,10 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "menubar"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agent"))
 
 from agent.config import BASE_DIR
-from menubar.settings import Settings, SETTINGS_PATH
+from backend.settings import Settings, SETTINGS_PATH
 
 try:
     from .backend import db_read
@@ -317,7 +316,7 @@ def _collect_stats(worker_state):
     return payload
 
 
-def main():
+def main(stop_event=None):
     _log("stats worker starting (smart polling)")
     
     worker_state = WorkerState()
@@ -339,6 +338,10 @@ def main():
         _log(f"Initial stats collection failed: {e}")
 
     while True:
+        if stop_event and stop_event.is_set():
+            _log("stats worker stopping")
+            break
+
         try:
             should_update = False
             
@@ -391,7 +394,12 @@ def main():
                 _write_stats_file(payload)
             
             # Sleep small amount to poll for file changes
-            time.sleep(1)
+            # Check stop_event more frequently during sleep if needed, 
+            # but 1s is responsive enough
+            if stop_event and stop_event.wait(1):
+                break
+            if not stop_event:
+                time.sleep(1)
             
         except KeyboardInterrupt:
             break
@@ -399,7 +407,10 @@ def main():
             print(f"[StatsWorker] Error scanning messages: {e}")
             import traceback
             traceback.print_exc()
-            time.sleep(5)
+            if stop_event:
+                stop_event.wait(5)
+            else:
+                time.sleep(5)
 
 if __name__ == "__main__":
     main()

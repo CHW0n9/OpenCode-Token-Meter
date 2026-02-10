@@ -110,7 +110,7 @@ def _read_lock_pid(path):
         return None
 
 
-async def main():
+async def main(threading_stop_event=None):
     """Main async entry point"""
     # Create lockfile to prevent multiple instances
     if os.path.exists(LOCKFILE_PATH):
@@ -165,6 +165,17 @@ async def main():
         
         # Shared event to signal shutdown
         stop_event = asyncio.Event()
+
+        # If running in a thread with a threading.Event, monitor it
+        if threading_stop_event:
+            async def monitor_threading_event():
+                while not threading_stop_event.is_set():
+                    await asyncio.sleep(1)
+                print("Threading stop event detected, shutting down agent...")
+                stop_event.set()
+                # Also need to stop server? server task waits on stop_event, so it should be fine.
+            
+            asyncio.create_task(monitor_threading_event())
         
         # Start periodic scan task
         scan_task = asyncio.create_task(periodic_scan(scanner, stop_event))

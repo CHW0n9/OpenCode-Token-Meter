@@ -58,10 +58,30 @@ class TrayManager:
         self._last_thresholds = {}
 
     def create_app(self):
+        # Initialize the app with a name (title will be cleared later)
+        self.app = rumps.App("OpenCode Token Meter")
+        
+        # Use image-based icon with template mode
         if os.path.exists(self.icon_path):
-            self.app = rumps.App("OpenCode Token Meter", icon=self.icon_path, template=False)
+            try:
+                # Set icon and template mode via rumps
+                self.app.icon = self.icon_path
+                self.app.template = True
+                
+                # IMPORTANT: Clear title to prevent showing text next to icon
+                self.app.title = None
+                
+                # Apply native Cocoa hack to disable highlight inversion on click
+                if hasattr(self.app, '_nsstatusitem'):
+                    button = self.app._nsstatusitem.button()
+                    if button:
+                        # setHighlightsBy_(0) disables all highlight states (no inversion)
+                        button.cell().setHighlightsBy_(0)
+                        print("[INFO] Tray icon highlight disabled via NSButtonCell hack")
+            except Exception as e:
+                print(f"[WARN] Failed to apply tray icon hack: {e}")
         else:
-            self.app = rumps.App("OpenCode Token Meter")
+            print(f"[WARN] Icon path not found: {self.icon_path}")
 
         today_header = rumps.MenuItem("Today")
         today_row1 = rumps.MenuItem(self._build_row("In:", "--", "Req:", "--"))

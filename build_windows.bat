@@ -41,7 +41,19 @@ if errorlevel 1 (
     echo  - Installing pillow...
     pip install --quiet pillow >nul 2>&1
 )
-echo  - Dependencies OK
+
+python -c "import pyperclip" >nul 2>&1
+if errorlevel 1 (
+    echo  - Installing pyperclip...
+    pip install --quiet pyperclip >nul 2>&1
+)
+
+python -c "import win10toast" >nul 2>&1
+if errorlevel 1 (
+    echo  - Installing win10toast...
+    pip install --quiet win10toast >nul 2>&1
+)
+ echo  - Dependencies OK
 
 REM Check resources
 echo.

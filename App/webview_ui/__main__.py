@@ -25,8 +25,18 @@ def main():
         return
     
     if args.webview:
-        import webview_runner
-        webview_runner.main(debug=args.debug, initial_page=args.page)
+        import os
+        # Ensure we can find 'main.py' regardless of how we are launched
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+            
+        try:
+            import main as webview_main
+        except ImportError:
+            from . import main as webview_main
+            
+        webview_main.main(debug=args.debug, initial_page=args.page)
         return
 
     if args.stats_worker:

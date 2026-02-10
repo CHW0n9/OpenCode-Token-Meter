@@ -7,7 +7,7 @@ import time
 # Add agent path for settings import
 if not getattr(sys, 'frozen', False):
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "agent"))
-from menubar.settings import Settings
+from .settings import Settings
 from agent.config import BASE_DIR, TRIGGER_FILE
 from agent.logger import log_error
 from .bridge import AgentBridge
@@ -519,7 +519,7 @@ class JsApi:
     def get_pricing_catalog(self):
         """Get default pricing catalog for display"""
         try:
-            from menubar.settings import DEFAULT_SETTINGS
+            from .settings import DEFAULT_SETTINGS
             data = {
                 "default": DEFAULT_SETTINGS.get("prices", {}).get("default", {}),
                 "models": DEFAULT_SETTINGS.get("prices", {}).get("models", {}),

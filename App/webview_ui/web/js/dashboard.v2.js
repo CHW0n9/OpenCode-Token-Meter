@@ -135,8 +135,7 @@ class Dashboard {
 
         const s = this.stats;
         setVal('stat-input', window.formatCompactNumber(s.total_input_tokens));
-        // Ensure reasoning tokens are included
-        const totalOutput = (s.total_output_tokens || 0) + (s.total_reasoning_tokens || 0);
+        const totalOutput = s.total_output_tokens || 0;
         setVal('stat-output', window.formatCompactNumber(totalOutput));
         setVal('stat-requests', window.formatCompactNumber(s.request_count));
         setVal('stat-cost', this.formatCost2(s.total_cost));
@@ -224,8 +223,7 @@ class Dashboard {
 
         let items = this.stats.providers.map(p => {
             let val = 0;
-            // Ensure reasoning tokens are included in provider stats
-            const outputWithReasoning = (p.output || 0) + (p.reasoning || 0);
+            const outputWithReasoning = (p.output || 0);
 
             switch (metric) {
                 case 'cost': val = p.cost; break;
@@ -293,11 +291,25 @@ class Dashboard {
             return;
         }
 
-        // Sort: Provider ASC, Requests DESC
+        // Rank by Request Count (DESC)
+        // Grouped by Provider: Providers with more total requests come first.
+        const providerTotals = {};
+        providers.forEach(p => {
+            providerTotals[p.name] = (providerTotals[p.name] || 0) + p.requests;
+        });
+
         providers.sort((a, b) => {
-            if (a.name < b.name) return -1;
-            if (a.name > b.name) return 1;
-            return b.requests - a.requests;
+            // Primary: Provider's total requests (DESC)
+            const diff = providerTotals[b.name] - providerTotals[a.name];
+            if (diff !== 0) return diff;
+
+            // Secondary: Same provider, rank models by requests (DESC)
+            if (a.name === b.name) {
+                return b.requests - a.requests;
+            }
+
+            // Tertiary: Alphabetical provider if requests exact match
+            return a.name.localeCompare(b.name);
         });
 
         let lastProvider = null;
@@ -509,7 +521,7 @@ class Dashboard {
             let rows = '';
             if (result.success && result.data) {
                 const s = result.data;
-                const totalOutput = (s.total_output_tokens || 0) + (s.total_reasoning_tokens || 0);
+                const totalOutput = (s.total_output_tokens || 0);
                 rows = `
                     <tr class="hover:bg-black-700/30 transition-colors">
                         <td class="px-4 py-3 font-medium text-white">${label}</td>
@@ -554,7 +566,7 @@ class Dashboard {
             }
 
             const s = result.data;
-            const totalOutput = (s.total_output_tokens || 0) + (s.total_reasoning_tokens || 0);
+            const totalOutput = (s.total_output_tokens || 0);
 
             rows += `
                 <tr class="hover:bg-black-700/30 transition-colors">
@@ -614,7 +626,7 @@ class Dashboard {
         // Scope header with totals (bold)
         if (statsResult.success && statsResult.data) {
             const s = statsResult.data;
-            const totalOutput = (s.total_output_tokens || 0) + (s.total_reasoning_tokens || 0);
+            const totalOutput = (s.total_output_tokens || 0);
             rows += `
                 <tr class="bg-black-900/50">
                     <td class="px-4 py-3 font-bold text-white text-base">${scopeLabel}</td>
@@ -631,9 +643,9 @@ class Dashboard {
             rows += `<tr class="bg-black-900/50"><td class="px-4 py-3 font-bold text-white" colspan="8">${scopeLabel}</td></tr>`;
         }
 
-        // Provider rows (indented)
+        // Provider rows (indented) - Rank by Requests DESC
         if (providerResult.success && providerResult.data) {
-            const providers = Object.entries(providerResult.data).sort((a, b) => a[0].localeCompare(b[0]));
+            const providers = Object.entries(providerResult.data).sort((a, b) => (b[1].requests || 0) - (a[1].requests || 0));
             for (const [provider, stats] of providers) {
                 const totalOutput = (stats.output || 0) + (stats.reasoning || 0);
                 rows += `
@@ -695,7 +707,7 @@ class Dashboard {
         // Scope header with totals (bold, larger)
         if (statsResult.success && statsResult.data) {
             const s = statsResult.data;
-            const totalOutput = (s.total_output_tokens || 0) + (s.total_reasoning_tokens || 0);
+            const totalOutput = (s.total_output_tokens || 0);
             rows += `
                 <tr class="bg-black-900/70">
                     <td class="px-4 py-3 font-bold text-white text-lg">${scopeLabel}</td>
@@ -714,8 +726,16 @@ class Dashboard {
 
         // Provider & Model rows  (hierarchical: provider bold, model double-indented)
         if (modelResult.success && modelResult.data) {
-            const providers = Object.entries(modelResult.data).sort((a, b) => a[0].localeCompare(b[0]));
-            for (const [provider, models] of providers) {
+            // First, calculate total requests per provider to rank providers
+            const providerEntries = Object.entries(modelResult.data).map(([name, models]) => {
+                const totalReq = Object.values(models).reduce((sum, m) => sum + (m.requests || 0), 0);
+                return { name, models, totalReq };
+            });
+
+            // Rank providers by total requests DESC
+            providerEntries.sort((a, b) => b.totalReq - a.totalReq);
+
+            for (const { name: provider, models } of providerEntries) {
                 // Provider subheader (bold, indented once)
                 rows += `
                     <tr class="bg-black-900/30">
@@ -723,8 +743,8 @@ class Dashboard {
                     </tr>
                 `;
 
-                // Model rows (double-indented)
-                const modelEntries = Object.entries(models).sort((a, b) => a[0].localeCompare(b[0]));
+                // Model rows (double-indented) - Rank by requests DESC
+                const modelEntries = Object.entries(models).sort((a, b) => (b[1].requests || 0) - (a[1].requests || 0));
                 for (const [model, stats] of modelEntries) {
                     const totalOutput = (stats.output || 0) + (stats.reasoning || 0);
                     rows += `

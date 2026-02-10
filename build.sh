@@ -28,7 +28,7 @@ echo -e " - Python: ${GREEN}$PYTHON${NC}"
 
 # Install dependencies
 echo -e "\n${BLUE}[1/4] Checking dependencies...${NC}"
-"$PYTHON" -m pip install --quiet --user --upgrade pyinstaller pywebview pystray pillow pyperclip 2>/dev/null || true
+"$PYTHON" -m pip install --quiet --user --upgrade pyinstaller pywebview pystray pillow pyperclip rumps pyobjc-framework-Cocoa 2>/dev/null || true
 echo -e " - Dependencies OK"
 
 # Clean previous builds

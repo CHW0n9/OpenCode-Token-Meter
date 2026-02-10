@@ -44,15 +44,46 @@ class TrayManager:
         }
 
     def get_icon_path(self):
+        import sys
         system = platform.system()
-        base_dir = os.path.dirname(os.path.dirname(__file__))
-        assets_dir = os.path.join(base_dir, "web", "assets")
+        
+        if getattr(sys, 'frozen', False):
+            # Frozen mode
+            if system == "Darwin":
+                # macOS .app bundle
+                resources_dir = os.path.join(os.path.dirname(sys.executable), "..", "Resources", "resources")
+            else:
+                # Windows/Linux PyInstaller one-dir
+                # resources are usually in _internal/resources or just resources next to exe?
+                # Based on file lists: dist/OpenCode Token Meter/_internal/resources/AppIcon.ico
+                # sys.executable is inside dist/OpenCode Token Meter/
+                # _internal is adjacent to exe?
+                # Actually, standard PyInstaller behaviour:
+                # sys._MEIPASS for onefile, or sys.executable dir for onedir
+                # Let's try to locate 'resources' dir relative to internal directory
+                base_path = os.path.dirname(os.path.abspath(__file__)) # This should be in _internal/webview_ui/backend
+                # Go up to _internal root?
+                # Safer to look relative to sys.executable for onedir
+                exe_dir = os.path.dirname(sys.executable)
+                resources_dir = os.path.join(exe_dir, "_internal", "resources")
+                if not os.path.exists(resources_dir):
+                     resources_dir = os.path.join(exe_dir, "resources")
+        else:
+            # Dev mode
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            resources_dir = os.path.join(base_dir, "web", "assets")
 
         if system == "Darwin":
-            return os.path.join(assets_dir, "icon_template@2x.png")
+             # Use template icon for macOS
+            path = os.path.join(resources_dir, "icon_template@2x.png")
+            if not os.path.exists(path):
+                path = os.path.join(resources_dir, "icon_template.png")
+            return path
+            
         if system == "Windows":
-            return os.path.join(assets_dir, "AppIcon.ico")
-        return os.path.join(assets_dir, "AppIcon.png")
+            return os.path.join(resources_dir, "AppIcon.ico")
+            
+        return os.path.join(resources_dir, "AppIcon.png")
 
     def create_icon(self):
         icon_path = self.get_icon_path()

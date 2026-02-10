@@ -40,6 +40,42 @@ DEFAULT_SETTINGS = {
             "request": 0.0     # $ per request
         },
         "models": {
+            # Anthropic - Sorted alphabetically
+            "anthropic/claude-haiku-4-5": {
+                "input": 1.0,
+                "output": 5.0,
+                "caching": 0.10,
+                "request": 0.0,
+                "provider": "anthropic"
+            },
+            "anthropic/claude-opus-4-1": {
+                "input": 15.0,
+                "output": 75.0,
+                "caching": 1.50,
+                "request": 0.0,
+                "provider": "anthropic"
+            },
+            "anthropic/claude-opus-4-5": {
+                "input": 5.0,
+                "output": 25.0,
+                "caching": 0.50,
+                "request": 0.0,
+                "provider": "anthropic"
+            },
+            "anthropic/claude-opus-4-6": {
+                "input": 5.0,
+                "output": 25.0,
+                "caching": 0.50,
+                "request": 0.0,
+                "provider": "anthropic"
+            },
+            "anthropic/claude-sonnet-4-5": {
+                "input": 3.0,
+                "output": 15.0,
+                "caching": 0.30,
+                "request": 0.0,
+                "provider": "anthropic"
+            },
             # GitHub Copilot - Sorted alphabetically by model name
             "github-copilot/claude-haiku-4.5": {
                 "input": 0.0,

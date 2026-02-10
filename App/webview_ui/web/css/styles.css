@@ -1,7 +1,8 @@
 /* Base Styles - Black/White Monochrome Theme */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;900&display=swap');
 
-html, body {
+html,
+body {
     background-color: #000000 !important;
     background: #000000 !important;
     margin: 0 !important;
@@ -9,12 +10,14 @@ html, body {
 }
 
 body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Lato', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-color: #000000;
     color: #ffffff;
     overflow-x: hidden;
+    font-size: var(--fs-base);
+    font-weight: 400;
 }
 
 /* Custom Scrollbar */
@@ -39,12 +42,21 @@ body {
 
 /* Animations */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .animate-fade-in {
@@ -86,8 +98,8 @@ select {
     color: #ffffff;
     border: 1px solid #333333;
     border-radius: 6px;
-    padding: 10px 40px 10px 14px;
-    font-size: 14px;
+    padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+    font-size: var(--fs-base);
     font-weight: 500;
     cursor: pointer;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
@@ -112,8 +124,8 @@ select:focus {
 select option {
     background-color: #111111;
     color: #ffffff;
-    padding: 10px;
-    font-size: 14px;
+    padding: 0.625rem;
+    font-size: var(--fs-base);
 }
 
 select option:hover,
@@ -152,8 +164,14 @@ table {
     border-collapse: collapse;
 }
 
-th, td {
+th,
+td {
     white-space: nowrap;
+    font-weight: 500;
+}
+
+th {
+    font-weight: 900 !important;
 }
 
 /* Card/Container Styles */
@@ -161,7 +179,8 @@ th, td {
     background-color: #0a0a0a !important;
 }
 
-.bg-black-800, .bg-black-900 {
+.bg-black-800,
+.bg-black-900 {
     background-color: #111111;
     border: 1px solid #222222;
 }
@@ -171,25 +190,38 @@ th, td {
     border: 1px solid #333333;
 }
 
-.border-black-700, .border-black-800 {
+.border-black-700,
+.border-black-800 {
     border-color: #333333;
 }
 
-/* Smaller font sizes globally */
+/* Unified font sizes globally */
 body {
-    font-size: 13px;
+    font-size: var(--fs-base);
 }
 
-h1, h2, h3, h4, h5, h6 {
-    font-size: 0.95rem;
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-size: var(--fs-l);
+    font-weight: 900;
 }
 
-p, span, div, td, th {
-    font-size: 0.85rem;
+p,
+span,
+div,
+td,
+th {
+    font-size: var(--fs-base);
 }
 
-select, input, button {
-    font-size: 0.8rem;
+select,
+input,
+button {
+    font-size: var(--fs-base);
 }
 
 /* Text colors - use white and gray */
@@ -246,8 +278,13 @@ select, input, button {
 }
 
 @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
 }
 
 /* Navigation tabs */

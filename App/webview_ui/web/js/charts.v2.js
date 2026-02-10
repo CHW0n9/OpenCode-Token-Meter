@@ -16,6 +16,12 @@ class ChartManager {
         ];
     }
 
+    // Helper to get scaled font size (mimics rem)
+    getScaledSize(rem) {
+        const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        return rem * rootSize;
+    }
+
     initTrendChart(canvasId, data, metric = 'cost') {
         if (!window.Chart) return;
         const canvas = document.getElementById(canvasId);
@@ -83,10 +89,10 @@ class ChartManager {
                     title: { display: false },
                     tooltip: {
                         enabled: hasData,
-                        backgroundColor: '#1e293b', // slate-800
-                        titleColor: '#f8fafc',
-                        bodyColor: '#cbd5e1',
-                        borderColor: '#334155', // slate-700
+                        backgroundColor: '#262626',
+                        titleColor: '#888888',
+                        bodyColor: '#ffffff',
+                        borderColor: '#525252',
                         borderWidth: 1,
                         padding: 10,
                         cornerRadius: 4,
@@ -108,7 +114,7 @@ class ChartManager {
                         },
                         ticks: {
                             color: '#ffffff', // white
-                            font: { size: 10 }
+                            font: { size: this.getScaledSize(0.8) } // Level S/Base equivalent
                         }
                     },
                     y: {
@@ -121,7 +127,7 @@ class ChartManager {
                         },
                         ticks: {
                             color: '#ffffff', // white
-                            font: { size: 10 },
+                            font: { size: this.getScaledSize(0.8) }, // Level S/Base equivalent
                             callback: function (value) {
                                 return axisCallback(value);
                             }
@@ -296,10 +302,10 @@ class ChartManager {
                 });
 
                 ctx.save();
-                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.font = `900 ${this.getScaledSize(0.8)}px Lato, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#94a3b8'; // // slate-400
+                ctx.fillStyle = '#888888'; // black-400-ish
 
                 Object.keys(providerSlices).forEach(provider => {
                     const group = providerSlices[provider];
@@ -339,8 +345,8 @@ class ChartManager {
                     chartCtx.save();
                     chartCtx.textAlign = 'center';
                     chartCtx.textBaseline = 'middle';
-                    chartCtx.font = '14px Inter, sans-serif';
-                    chartCtx.fillStyle = '#94a3b8'; // // slate-400
+                    chartCtx.font = `${this.getScaledSize(1.0)}px Lato, sans-serif`;
+                    chartCtx.fillStyle = '#888888';
                     chartCtx.fillText('No Data', centerX, centerY);
                     chartCtx.restore();
                     return;
@@ -361,8 +367,8 @@ class ChartManager {
                     chartCtx.save();
                     chartCtx.textAlign = 'center';
                     chartCtx.textBaseline = 'middle';
-                    const fontSize = 11;
-                    chartCtx.font = `bold ${fontSize}px Inter, sans-serif`;
+                    const fontSize = this.getScaledSize(0.8);
+                    chartCtx.font = `900 ${fontSize}px Lato, sans-serif`;
 
                     // Prepare lines - Simplify to Model + % (Provider is in tooltip)
                     const modelName = meta.model.length > 20 ? meta.model.substring(0, 18) + '..' : meta.model;
@@ -382,14 +388,13 @@ class ChartManager {
                     const boxX = x - (boxWidth / 2);
                     const boxY = y - (boxHeight / 2);
 
-                    // Draw semi-transparent background box for readability
-                    chartCtx.fillStyle = 'rgba(15, 23, 42, 0.7)'; // // slate-900 with opacity
+                    chartCtx.fillStyle = 'rgba(10, 10, 10, 0.7)'; // black-950
                     chartCtx.beginPath();
                     chartCtx.roundRect(boxX, boxY, boxWidth, boxHeight, 4);
                     chartCtx.fill();
 
                     // Draw text
-                    chartCtx.fillStyle = '#f8fafc'; // // slate-50
+                    chartCtx.fillStyle = '#ffffff';
 
                     const startY = boxY + padding + (lineHeight / 2);
                     lines.forEach((line, i) => {
@@ -425,12 +430,12 @@ class ChartManager {
                         filter: function (tooltipItem) {
                             return tooltipItem.chart.data.labels[tooltipItem.dataIndex] !== 'Gap';
                         },
-                        backgroundColor: '#1e293b',
-                        titleColor: '#94a3b8', // Provider (subtle)
-                        titleFont: { size: 11, weight: 'normal' },
-                        bodyColor: '#f8fafc', // Model (bright)
-                        bodyFont: { size: 13, weight: 'bold' },
-                        borderColor: '#334155',
+                        backgroundColor: '#262626',
+                        titleColor: '#888888', // Provider (subtle)
+                        titleFont: { size: this.getScaledSize(0.8), weight: 'normal' },
+                        bodyColor: '#ffffff', // Model (bright)
+                        bodyFont: { size: this.getScaledSize(0.85), weight: 'bold' },
+                        borderColor: '#525252',
                         borderWidth: 1,
                         padding: 12,
                         cornerRadius: 6,

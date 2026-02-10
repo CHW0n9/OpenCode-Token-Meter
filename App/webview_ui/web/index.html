@@ -6,14 +6,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenCode Token Meter</title>
 
-    <!-- Force black background for webview -->
+    <!-- Global Typography System -->
     <style>
-        html,
-        body {
+        :root {
+            /* Base font size (16px) */
+            --font-base-px: 16px;
+
+            /* Scaling factor (0.5, 0.75, 1.0, 1.25) */
+            --font-scale: 1.0;
+
+            /* Consolidated Font Levels (3 Levels: S/Base, L, XL) */
+            --fs-s: 0.8rem;
+            /* S: 12.8px at 100% scale */
+            --fs-base: 0.8rem;
+            /* Base: 12.8px at 100% scale */
+            --fs-l: 1.0rem;
+            /* L: 16px at 100% scale */
+            --fs-xl: 1.2rem;
+            /* XL: 19.2px at 100% scale */
+        }
+
+        html {
+            /* Root font size determines the 'rem' value */
+            font-size: calc(var(--font-base-px) * var(--font-scale)) !important;
             background-color: #000000 !important;
             background: #000000 !important;
             margin: 0 !important;
             padding: 0 !important;
+        }
+
+        body {
+            background-color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: var(--fs-base) !important;
         }
 
         ::-webkit-scrollbar {
@@ -58,15 +84,23 @@
                         }
                     },
                     fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        sans: ['Lato', 'system-ui', 'sans-serif'],
+                    },
+                    fontWeight: {
+                        normal: '400',
+                        bold: '900',
                     },
                     fontSize: {
-                        'xs': ['0.65rem', { lineHeight: '0.9rem' }],
-                        'sm': ['0.75rem', { lineHeight: '1rem' }],
-                        'base': ['0.85rem', { lineHeight: '1.2rem' }],
-                        'lg': ['0.95rem', { lineHeight: '1.3rem' }],
-                        'xl': ['1.05rem', { lineHeight: '1.4rem' }],
-                        '2xl': ['1.2rem', { lineHeight: '1.5rem' }],
+                        's': ['var(--fs-s)', { lineHeight: '1.2' }],
+                        'base': ['var(--fs-base)', { lineHeight: '1.5' }],
+                        'l': ['var(--fs-l)', { lineHeight: '1.4' }],
+                        'xl': ['var(--fs-xl)', { lineHeight: '1.2' }],
+
+                        // Maintain legacy keys mapped to new variables for stability during transition
+                        'xs': 'var(--fs-s)',
+                        'sm': 'var(--fs-s)',
+                        'lg': 'var(--fs-l)',
+                        '2xl': 'var(--fs-xl)',
                     }
                 }
             }
@@ -223,7 +257,7 @@
                 <!-- Trend Chart -->
                 <div class="lg:col-span-2 bg-black-800 rounded-xl p-6 border border-black-700">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-white">Usage Trend</h3>
+                        <h3 class="text-lg font-bold text-white">Usage Trend</h3>
                         <select id="trend-metric"
                             class="bg-black-900 border border-black-700 text-white text-xs rounded-lg p-1.5 focus:ring-white focus:border-white outline-none">
                             <option value="cost" selected>Cost</option>
@@ -241,7 +275,7 @@
                 <!-- Distribution Chart -->
                 <div class="bg-black-800 rounded-xl p-6 border border-black-700">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-white">Distribution</h3>
+                        <h3 class="text-lg font-bold text-white">Distribution</h3>
                         <select id="distribution-metric"
                             class="bg-black-900 border border-black-700 text-white text-xs rounded-lg p-1.5 focus:ring-white focus:border-white outline-none">
                             <option value="cost">Cost</option>
@@ -261,14 +295,14 @@
             <!-- Provider Breakdown -->
             <div class="bg-black-800 rounded-xl overflow-hidden border border-black-700">
                 <div class="p-4 border-b border-black-700">
-                    <h3 class="text-lg font-semibold text-white">Providers</h3>
+                    <h3 class="text-lg font-bold text-white">Models</h3>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
                         <thead class="text-xs text-black-400 uppercase bg-black-900/50">
                             <tr>
-                                <th class="px-6 py-3">Provider</th>
                                 <th class="px-6 py-3">Model</th>
+                                <th class="px-6 py-3">Usage</th>
                                 <th class="px-6 py-3">In / Out</th>
                                 <th class="px-6 py-3 text-right">Requests</th>
                                 <th class="px-6 py-3 text-right">Cost</th>
@@ -284,9 +318,9 @@
         <!-- Details View -->
         <div id="details-view" class="view-section hidden max-w-7xl mx-auto space-y-6 animate-fade-in">
             <!-- Time Section (Unified Time Selector) -->
-            <div class="bg-black-800 rounded-xl p-4 border border-black-700">
+            <div class="bg-black-800 rounded-xl p-6 border border-black-700">
                 <div class="flex items-center justify-between gap-4">
-                    <h3 class="text-lg font-semibold text-white">Time</h3>
+                    <h3 class="text-lg font-bold text-white">Time</h3>
                     <div class="flex items-center gap-4 flex-1 justify-start">
                         <!-- Time Range Select -->
                         <select id="details-time-select"
@@ -307,7 +341,7 @@
                                 class="bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2 outline-none focus:ring-1 focus:ring-white">
                             <!-- Confirm Button (Hidden by default, appears when date changes) -->
                             <button id="custom-range-confirm-btn"
-                                class="hidden p-2 text-white hover:text-black-300 transition-all"
+                                class="hidden p-2 text-white bg-black-900 border border-black-700 rounded-lg hover:border-black-400 transition-all"
                                 title="Apply Custom Range">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
@@ -328,22 +362,23 @@
             <!-- Detailed Stats -->
             <div class="bg-black-800 rounded-xl p-6 border border-black-700">
                 <div class="grid grid-cols-1 md:grid-cols-3 items-center gap-4 mb-4">
-                    <h3 class="text-lg font-semibold text-white justify-self-start">Detailed Statistics</h3>
+                    <h3 class="text-lg font-bold text-white justify-self-start">Detailed Statistics</h3>
 
                     <div class="flex justify-center">
-                        <div class="bg-black-900 p-1 rounded-lg">
+                        <div
+                            class="bg-black-900 p-1 rounded-lg flex flex-row flex-nowrap whitespace-nowrap overflow-x-auto no-scrollbar shrink-0 w-max">
                             <button
-                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-white bg-black-700 border-none outline-none"
+                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-white bg-black-700 border-none outline-none shrink-0"
                                 data-mode="all">
                                 All Providers
                             </button>
                             <button
-                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-black-400 border-none outline-none"
+                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-black-400 border-none outline-none shrink-0"
                                 data-mode="provider">
                                 By Provider
                             </button>
                             <button
-                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-black-400 border-none outline-none"
+                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-black-400 border-none outline-none shrink-0"
                                 data-mode="model">
                                 By Model
                             </button>
@@ -408,11 +443,11 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 <!-- General Settings -->
                 <div class="bg-black-800 rounded-xl p-6 border border-black-700 h-full">
-                    <h3 class="text-lg font-semibold text-white mb-4">General</h3>
+                    <h3 class="text-lg font-bold text-white mb-4">General</h3>
                     <div class="space-y-4">
                         <div class="flex items-center justify-between py-2 border-b border-black-700">
                             <div>
-                                <span class="text-white">Notifications</span>
+                                <span class="font-bold text-white">Notifications</span>
                                 <p class="text-xs text-black-400">Show desktop notifications</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
@@ -422,9 +457,10 @@
                                 </div>
                             </label>
                         </div>
-                        <div class="grid grid-cols-1 gap-4 py-2">
+                        <div class="grid grid-cols-1 gap-4 pt-4">
                             <div>
-                                <label class="block text-sm text-black-300 mb-2">Timezone</label>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Timezone</label>
                                 <select id="timezone-select"
                                     class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white">
                                     <option value="local">Local System Time</option>
@@ -448,7 +484,9 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm text-black-300 mb-2">Default Time Span</label>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Default
+                                    Time Span</label>
                                 <select id="default-scope-select"
                                     class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white">
                                     <option value="today">Today</option>
@@ -463,11 +501,11 @@
 
                 <!-- Thresholds Section -->
                 <div class="bg-black-800 rounded-xl p-6 border border-black-700 h-full">
-                    <h3 class="text-lg font-semibold text-white mb-4">Cost Thresholds</h3>
+                    <h3 class="text-lg font-bold text-white mb-4">Cost Thresholds</h3>
                     <div class="space-y-4">
                         <div class="flex items-center justify-between py-2 border-b border-black-700">
                             <div>
-                                <span class="text-white">Enable Thresholds</span>
+                                <span class="font-bold text-white">Enable Thresholds</span>
                                 <p class="text-xs text-black-400">Show warnings at limits</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
@@ -477,29 +515,37 @@
                                 </div>
                             </label>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                             <div>
-                                <label class="block text-sm text-black-300 mb-2">Daily Token Limit</label>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Daily
+                                    Token Limit</label>
                                 <input type="text" id="daily-tokens"
-                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white"
                                     placeholder="1,000,000">
                             </div>
                             <div>
-                                <label class="block text-sm text-black-300 mb-2">Daily Cost Limit ($)</label>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Daily
+                                    Cost Limit ($)</label>
                                 <input type="text" id="daily-cost"
-                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white"
                                     placeholder="20.00">
                             </div>
                             <div>
-                                <label class="block text-sm text-black-300 mb-2">Monthly Token Limit</label>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Monthly
+                                    Token Limit</label>
                                 <input type="text" id="monthly-tokens"
-                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white"
                                     placeholder="10,000,000">
                             </div>
                             <div>
-                                <label class="block text-sm text-black-300 mb-2">Monthly Cost Limit ($)</label>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Monthly
+                                    Cost Limit ($)</label>
                                 <input type="text" id="monthly-cost"
-                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white"
                                     placeholder="1,000.00">
                             </div>
                         </div>
@@ -510,7 +556,7 @@
             <!-- Model Pricing Section -->
             <div class="bg-black-800 rounded-xl p-6 border border-black-700">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-white">Model Pricing</h3>
+                    <h3 class="text-lg font-bold text-white">Model Pricing</h3>
                     <button id="add-model-btn"
                         class="px-3 py-1.5 text-sm font-medium text-black-950 bg-white hover:bg-black-200 rounded-lg transition-all">
                         Add Model
@@ -554,6 +600,7 @@
     <!-- Scripts -->
     <script src="js/dialog.js?v=20240209e"></script>
     <script src="js/api.js?v=20240209e"></script>
+    <script src="js/font_scale.js?v=20240209e"></script>
     <script src="js/charts.v2.js?v=20240209e"></script>
     <script src="js/dashboard.v2.js?v=20240209e"></script>
     <script src="js/settings.js?v=20240209e"></script>

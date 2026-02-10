@@ -14,7 +14,6 @@ block_cipher = None
 project_root = os.path.dirname(os.path.abspath(SPEC))
 app_dir = os.path.join(project_root, 'App')
 webview_ui_dir = os.path.join(app_dir, 'webview_ui')
-menubar_dir = os.path.join(app_dir, 'menubar')
 agent_dir = os.path.join(app_dir, 'agent')
 web_dir = os.path.join(webview_ui_dir, 'web')
 # Use assets from web directory as the source for resources (icons)
@@ -23,7 +22,6 @@ resources_dir = os.path.join(web_dir, 'assets')
 # Add paths to sys.path for module collection
 import sys
 sys.path.insert(0, webview_ui_dir)
-sys.path.insert(0, menubar_dir)
 sys.path.insert(0, agent_dir)
 
 # Collect all agent submodules automatically
@@ -62,7 +60,7 @@ unittest_pkg_path = os.path.join(stdlib_path, 'unittest')
 # Main analysis for webview_ui app (includes agent as embedded module)
 a = Analysis(
     [os.path.join(webview_ui_dir, '__main__.py')],
-    pathex=[webview_ui_dir, menubar_dir, agent_dir],
+    pathex=[webview_ui_dir, agent_dir],
     binaries=[],
     datas=[
         # Web frontend files
@@ -86,6 +84,7 @@ a = Analysis(
         # pywebview platform-specific modules
         'webview',
         'webview.platforms.cocoa',  # macOS
+        'webview.platforms.darwin', # macOS fallback
         'webview.platforms.winforms',  # Windows
         'webview.http',
         # pystray
@@ -95,13 +94,21 @@ a = Analysis(
         'pystray._util.win32',
         # 'pystray._util.darwin', # Removed to avoid ERROR
 
+        # Notifications and Tray (OS specfic)
+        'pyperclip',
+        'rumps',
+        'win10toast',
+        'AppKit',
+        'Foundation',
+        'PyObjCTools',
+
         # Pillow
         'PIL',
         'PIL.Image',
         'PIL.ImageDraw',
         'PIL.ImageFont',
         # Settings and config
-        'menubar.settings',
+        'webview_ui.backend.settings',
         'agent.config',
         'agent.db',
         'agent.scanner',
@@ -118,10 +125,7 @@ a = Analysis(
         'platform',
         'shutil',
         'pathlib',
-        # http modules required by pywebview - REMOVED explicit hiddenimports to avoid conflicts with datas
-        # 'http',
-        # 'http.server', 
-        # 'http.client',
+        # http modules required by pywebview
         'wsgiref',
         'wsgiref.simple_server',
         'wsgiref.handlers',
@@ -132,7 +136,10 @@ a = Analysis(
     excludes=[
         # PyQt6 - excluded as we use pywebview now
         'PyQt6',
-        'PyQt6.*',
+        'PyQt6.QtCore',
+        'PyQt6.QtGui',
+        'PyQt6.QtWidgets',
+        'PyQt6.QtNetwork',
         'PySide6',
         'PySide2',
         # Unused modules
@@ -145,14 +152,9 @@ a = Analysis(
         'notebook',
         'tkinter',
         '_tkinter',
-        # Standard library unused modules
-        'unittest',
+        # Standard library unused modules (keep if in datas)
         'pydoc',
         'pydoc_data',
-        'email',
-        'http',
-        'multiprocessing',
-        'concurrent',
         'test',
         'distutils',
         'lib2to3',
