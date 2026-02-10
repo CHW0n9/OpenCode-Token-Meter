@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenCode Token Meter</title>
+
+    <!-- Global Typography System -->
+    <style>
+        :root {
+            /* Base font size (16px) */
+            --font-base-px: 16px;
+
+            /* Scaling factor (0.5, 0.75, 1.0, 1.25) */
+            --font-scale: 1.0;
+
+            /* Consolidated Font Levels (3 Levels: S/Base, L, XL) */
+            --fs-s: 0.8rem;
+            /* S: 12.8px at 100% scale */
+            --fs-base: 0.8rem;
+            /* Base: 12.8px at 100% scale */
+            --fs-l: 1.0rem;
+            /* L: 16px at 100% scale */
+            --fs-xl: 1.2rem;
+            /* XL: 19.2px at 100% scale */
+        }
+
+        html {
+            /* Root font size determines the 'rem' value */
+            font-size: calc(var(--font-base-px) * var(--font-scale)) !important;
+            background-color: #000000 !important;
+            background: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        body {
+            background-color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: var(--fs-base) !important;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+            background: #000000;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333333;
+            border-radius: 4px;
+        }
+    </style>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/vendor/chart.min.js"></script>
+
+    <!-- Tailwind Config - Black/White Monochrome with smaller fonts -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        black: {
+                            50: '#fafafa',
+                            100: '#f5f5f5',
+                            200: '#e5e5e5',
+                            300: '#d4d4d4',
+                            400: '#a3a3a3',
+                            500: '#737373',
+                            600: '#525252',
+                            700: '#404040',
+                            800: '#262626',
+                            900: '#171717',
+                            950: '#0a0a0a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Lato', 'system-ui', 'sans-serif'],
+                    },
+                    fontWeight: {
+                        normal: '400',
+                        bold: '900',
+                    },
+                    fontSize: {
+                        's': ['var(--fs-s)', { lineHeight: '1.2' }],
+                        'base': ['var(--fs-base)', { lineHeight: '1.5' }],
+                        'l': ['var(--fs-l)', { lineHeight: '1.4' }],
+                        'xl': ['var(--fs-xl)', { lineHeight: '1.2' }],
+
+                        // Maintain legacy keys mapped to new variables for stability during transition
+                        'xs': 'var(--fs-s)',
+                        'sm': 'var(--fs-s)',
+                        'lg': 'var(--fs-l)',
+                        '2xl': 'var(--fs-xl)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Local Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body
+    class="bg-black-950 text-white h-screen flex flex-col overflow-hidden selection:bg-white selection:text-black-950 border border-black-800">
+
+    <!-- Top Navigation -->
+    <nav class="bg-black-900 border-b border-black-800 h-16 flex-none z-20">
+        <div class="max-w-7xl mx-auto px-6 h-full flex items-center">
+            <!-- Left: Logo -->
+            <div class="flex items-center gap-2 w-1/4">
+                <img src="assets/AppIcon.png" alt="Logo" class="w-8 h-8 rounded-lg object-contain">
+                <span class="font-bold text-xl tracking-tight text-white">TokenMeter</span>
+            </div>
+
+            <!-- Middle: Navigation Tabs -->
+            <div class="flex-1 flex justify-center">
+                <div class="flex bg-black-950 p-1 rounded-lg">
+                    <button
+                        class="flex-1 nav-tab px-4 py-1.5 rounded-md text-sm font-medium text-white bg-black-700 transition-all border-none outline-none"
+                        data-view="dashboard">
+                        Dashboard
+                    </button>
+                    <button
+                        class="flex-1 nav-tab px-4 py-1.5 rounded-md text-sm font-medium text-black-400 hover:text-white transition-all border-none outline-none"
+                        data-view="details">
+                        Details
+                    </button>
+                    <button
+                        class="flex-1 nav-tab px-4 py-1.5 rounded-md text-sm font-medium text-black-400 hover:text-white transition-all border-none outline-none"
+                        data-view="settings">
+                        Settings
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: Status -->
+            <div class="w-1/4 flex justify-end">
+                <div id="agent-status-container"
+                    class="flex items-center gap-2 text-xs text-black-400 bg-black-800 px-3 py-1.5 rounded-full border border-black-700 transition-colors">
+                    <div id="agent-status-dot" class="w-2 h-2 rounded-full bg-gray-400"></div>
+                    <span id="agent-status-text">Checking...</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-6 bg-black-950">
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="view-section max-w-7xl mx-auto space-y-6 animate-fade-in">
+
+            <!-- Controls Header -->
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-white">Overview</h2>
+                <div class="flex items-center gap-3">
+                    <select id="scope-select"
+                        class="bg-black-800 border border-black-700 text-white text-sm rounded-lg focus:ring-white focus:border-white block p-2.5 outline-none">
+                        <option value="today">Today</option>
+                        <option value="week" selected>Last 7 Days</option>
+                        <option value="month">This Month</option>
+                        <option value="all">All Time</option>
+                    </select>
+                    <button id="refresh-btn"
+                        class="p-2.5 text-black-400 hover:text-white bg-black-800 hover:bg-black-700 border border-black-700 rounded-lg transition-all active:scale-95">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <!-- Input Tokens -->
+                <div class="bg-black-800 rounded-xl p-4 border border-black-700">
+                    <p class="text-xs text-black-400 uppercase tracking-wider mb-1">Input</p>
+                    <p class="text-2xl font-bold text-white" id="stat-input">-</p>
+                </div>
+
+                <!-- Output Tokens -->
+                <div class="bg-black-800 rounded-xl p-4 border border-black-700">
+                    <p class="text-xs text-black-400 uppercase tracking-wider mb-1">Output</p>
+                    <p class="text-2xl font-bold text-white" id="stat-output">-</p>
+                </div>
+
+                <!-- Requests -->
+                <div class="bg-black-800 rounded-xl p-4 border border-black-700">
+                    <p class="text-xs text-black-400 uppercase tracking-wider mb-1">Requests</p>
+                    <p class="text-2xl font-bold text-white" id="stat-requests">-</p>
+                </div>
+
+                <!-- Total Cost -->
+                <div class="bg-black-800 rounded-xl p-4 border border-black-700">
+                    <p class="text-xs text-black-400 uppercase tracking-wider mb-1">Cost</p>
+                    <p class="text-2xl font-bold text-white" id="stat-cost">-</p>
+                </div>
+
+                <!-- Token Threshold -->
+                <div class="bg-black-800 rounded-xl p-4 border border-black-700 col-span-2 lg:col-span-1"
+                    id="card-token-threshold">
+                    <p class="text-xs text-black-400 uppercase tracking-wider mb-2">Token Threshold</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-xs text-black-400">
+                            <span>Today</span>
+                            <span id="token-threshold-today-pct">--</span>
+                        </div>
+                        <div class="w-full h-2 bg-black-700 rounded">
+                            <div id="token-threshold-today-bar" class="h-2 bg-white rounded" style="width:0%"></div>
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-black-400 pt-1">
+                            <span>Month</span>
+                            <span id="token-threshold-month-pct">--</span>
+                        </div>
+                        <div class="w-full h-2 bg-black-700 rounded">
+                            <div id="token-threshold-month-bar" class="h-2 bg-white rounded" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cost Threshold -->
+                <div class="bg-black-800 rounded-xl p-4 border border-black-700 col-span-2 lg:col-span-1"
+                    id="card-cost-threshold">
+                    <p class="text-xs text-black-400 uppercase tracking-wider mb-2">Cost Threshold</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-xs text-black-400">
+                            <span>Today</span>
+                            <span id="cost-threshold-today-pct">--</span>
+                        </div>
+                        <div class="w-full h-2 bg-black-700 rounded">
+                            <div id="cost-threshold-today-bar" class="h-2 bg-white rounded" style="width:0%"></div>
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-black-400 pt-1">
+                            <span>Month</span>
+                            <span id="cost-threshold-month-pct">--</span>
+                        </div>
+                        <div class="w-full h-2 bg-black-700 rounded">
+                            <div id="cost-threshold-month-bar" class="h-2 bg-white rounded" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Trend Chart -->
+                <div class="lg:col-span-2 bg-black-800 rounded-xl p-6 border border-black-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-white">Usage Trend</h3>
+                        <select id="trend-metric"
+                            class="bg-black-900 border border-black-700 text-white text-xs rounded-lg p-1.5 focus:ring-white focus:border-white outline-none">
+                            <option value="cost" selected>Cost</option>
+                            <option value="total_tokens">Total Tokens</option>
+                            <option value="input_tokens">Input Tokens</option>
+                            <option value="output_tokens">Output Tokens</option>
+                            <option value="requests">Requests</option>
+                        </select>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="trend-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Distribution Chart -->
+                <div class="bg-black-800 rounded-xl p-6 border border-black-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-white">Distribution</h3>
+                        <select id="distribution-metric"
+                            class="bg-black-900 border border-black-700 text-white text-xs rounded-lg p-1.5 focus:ring-white focus:border-white outline-none">
+                            <option value="cost">Cost</option>
+                            <option value="total_tokens">Total Tokens</option>
+                            <option value="input_tokens">Input Tokens</option>
+                            <option value="output_tokens">Output Tokens</option>
+                            <option value="requests" selected>Requests</option>
+                        </select>
+
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="distribution-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Provider Breakdown -->
+            <div class="bg-black-800 rounded-xl overflow-hidden border border-black-700">
+                <div class="p-4 border-b border-black-700">
+                    <h3 class="text-lg font-bold text-white">Models</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-black-400 uppercase bg-black-900/50">
+                            <tr>
+                                <th class="px-6 py-3">Model</th>
+                                <th class="px-6 py-3">Usage</th>
+                                <th class="px-6 py-3">In / Out</th>
+                                <th class="px-6 py-3 text-right">Requests</th>
+                                <th class="px-6 py-3 text-right">Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="providers-table-body" class="divide-y divide-black-700">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details View -->
+        <div id="details-view" class="view-section hidden max-w-7xl mx-auto space-y-6 animate-fade-in">
+            <!-- Time Section (Unified Time Selector) -->
+            <div class="bg-black-800 rounded-xl p-6 border border-black-700">
+                <div class="flex items-center justify-between gap-4">
+                    <h3 class="text-lg font-bold text-white">Time</h3>
+                    <div class="flex items-center gap-4 flex-1 justify-start">
+                        <!-- Time Range Select -->
+                        <select id="details-time-select"
+                            class="bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white">
+                            <option value="today">Today</option>
+                            <option value="week" selected>Last 7 Days</option>
+                            <option value="month">This Month</option>
+                            <option value="all">All Time</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+
+                        <!-- Custom Date Inputs (Hidden by default) -->
+                        <div id="custom-range-inputs" class="flex gap-2 items-center hidden">
+                            <input type="datetime-local" step="1" id="custom-start-date"
+                                class="bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2 outline-none focus:ring-1 focus:ring-white">
+                            <span class="text-black-400">to</span>
+                            <input type="datetime-local" step="1" id="custom-end-date"
+                                class="bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2 outline-none focus:ring-1 focus:ring-white">
+                            <!-- Confirm Button (Hidden by default, appears when date changes) -->
+                            <button id="custom-range-confirm-btn"
+                                class="hidden p-2 text-white bg-black-900 border border-black-700 rounded-lg hover:border-black-400 transition-all"
+                                title="Apply Custom Range">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Export Raw Data Button -->
+                    <button id="export-raw-btn"
+                        class="px-4 py-2.5 text-sm font-medium text-black-950 bg-white hover:bg-black-200 rounded-lg transition-all whitespace-nowrap">
+                        Export Raw Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Detailed Stats -->
+            <div class="bg-black-800 rounded-xl p-6 border border-black-700">
+                <div class="grid grid-cols-1 md:grid-cols-3 items-center gap-4 mb-4">
+                    <h3 class="text-lg font-bold text-white justify-self-start">Detailed Statistics</h3>
+
+                    <div class="flex justify-center">
+                        <div
+                            class="bg-black-900 p-1 rounded-lg flex flex-row flex-nowrap whitespace-nowrap overflow-x-auto no-scrollbar shrink-0 w-max">
+                            <button
+                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-white bg-black-700 border-none outline-none shrink-0"
+                                data-mode="all">
+                                All Providers
+                            </button>
+                            <button
+                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-black-400 border-none outline-none shrink-0"
+                                data-mode="provider">
+                                By Provider
+                            </button>
+                            <button
+                                class="details-view-btn px-3 py-1 rounded-md text-sm font-medium text-black-400 border-none outline-none shrink-0"
+                                data-mode="model">
+                                By Model
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end h-9 items-center gap-2">
+                        <button id="export-stats-btn"
+                            class="p-2 text-black-400 hover:text-white bg-black-900 border border-black-700 rounded-lg transition-colors"
+                            title="Export Current View CSV">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-black-400 uppercase bg-black-900/50">
+                            <tr>
+                                <th class="px-4 py-3">Scope</th>
+                                <th class="px-4 py-3 text-right">Input</th>
+                                <th class="px-4 py-3 text-right">Output+Reasoning</th>
+                                <th class="px-4 py-3 text-right">Cache Read</th>
+                                <th class="px-4 py-3 text-right">Cache Write</th>
+                                <th class="px-4 py-3 text-right">Messages</th>
+                                <th class="px-4 py-3 text-right">Requests</th>
+                                <th class="px-4 py-3 text-right">Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="details-table-body" class="divide-y divide-black-700">
+                            <tr>
+                                <td colspan="8" class="px-6 py-8 text-center text-black-400">
+                                    Loading statistics...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="settings-view" class="view-section hidden max-w-7xl mx-auto space-y-6 animate-fade-in">
+            <!-- Header -->
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-white">Settings</h2>
+                <div class="flex gap-3">
+                    <button id="settings-reset-btn"
+                        class="px-4 py-2 text-sm font-medium text-black-400 hover:text-white bg-black-800 hover:bg-black-700 border border-black-700 rounded-lg transition-all">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Settings Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <!-- General Settings -->
+                <div class="bg-black-800 rounded-xl p-6 border border-black-700 h-full">
+                    <h3 class="text-lg font-bold text-white mb-4">General</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between py-2 border-b border-black-700">
+                            <div>
+                                <span class="font-bold text-white">Notifications</span>
+                                <p class="text-xs text-black-400">Show desktop notifications</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="notifications-enabled" class="sr-only peer">
+                                <div
+                                    class="w-11 h-6 bg-black-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600">
+                                </div>
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4 pt-4">
+                            <div>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Timezone</label>
+                                <select id="timezone-select"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white">
+                                    <option value="local">Local System Time</option>
+                                    <option value="UTC">UTC</option>
+                                    <optgroup label="Asia">
+                                        <option value="Asia/Hong_Kong">Hong Kong</option>
+                                        <option value="Asia/Tokyo">Tokyo</option>
+                                        <option value="Asia/Shanghai">Shanghai</option>
+                                        <option value="Asia/Singapore">Singapore</option>
+                                    </optgroup>
+                                    <optgroup label="America">
+                                        <option value="America/New_York">New York</option>
+                                        <option value="America/Los_Angeles">Los Angeles</option>
+                                        <option value="America/Chicago">Chicago</option>
+                                    </optgroup>
+                                    <optgroup label="Europe">
+                                        <option value="Europe/London">London</option>
+                                        <option value="Europe/Paris">Paris</option>
+                                        <option value="Europe/Berlin">Berlin</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Default
+                                    Time Span</label>
+                                <select id="default-scope-select"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white">
+                                    <option value="today">Today</option>
+                                    <option value="week">Last 7 Days</option>
+                                    <option value="month">This Month</option>
+                                    <option value="all">All Time</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thresholds Section -->
+                <div class="bg-black-800 rounded-xl p-6 border border-black-700 h-full">
+                    <h3 class="text-lg font-bold text-white mb-4">Cost Thresholds</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between py-2 border-b border-black-700">
+                            <div>
+                                <span class="font-bold text-white">Enable Thresholds</span>
+                                <p class="text-xs text-black-400">Show warnings at limits</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="thresholds-enabled" class="sr-only peer">
+                                <div
+                                    class="w-11 h-6 bg-black-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600">
+                                </div>
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                            <div>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Daily
+                                    Token Limit</label>
+                                <input type="text" id="daily-tokens"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white"
+                                    placeholder="1,000,000">
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Daily
+                                    Cost Limit ($)</label>
+                                <input type="text" id="daily-cost"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white"
+                                    placeholder="20.00">
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Monthly
+                                    Token Limit</label>
+                                <input type="text" id="monthly-tokens"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white"
+                                    placeholder="10,000,000">
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Monthly
+                                    Cost Limit ($)</label>
+                                <input type="text" id="monthly-cost"
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white"
+                                    placeholder="1,000.00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Pricing Section -->
+            <div class="bg-black-800 rounded-xl p-6 border border-black-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-white">Model Pricing</h3>
+                    <button id="add-model-btn"
+                        class="px-3 py-1.5 text-sm font-medium text-black-950 bg-white hover:bg-black-200 rounded-lg transition-all">
+                        Add Model
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-black-400 uppercase bg-black-900/50">
+                            <tr>
+                                <th class="px-4 py-3">Provider</th>
+                                <th class="px-4 py-3">Model</th>
+                                <th class="px-4 py-3 text-right">Input $/1M</th>
+                                <th class="px-4 py-3 text-right">Output $/1M</th>
+                                <th class="px-4 py-3 text-right">Cache $/1M</th>
+                                <th class="px-4 py-3 text-right">Request $</th>
+                                <th class="px-4 py-3 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="model-pricing-table" class="divide-y divide-black-700">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Save Button -->
+        <button id="settings-save-btn"
+            class="fixed bottom-12 right-12 w-14 h-14 bg-gray-100 text-black-950 rounded-full shadow-lg hover:bg-gray-300 transition-all transform hover:scale-105 z-50 flex items-center justify-center hidden">
+            <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="8 3 8 8 16 8 16 4"></polyline>
+            </svg>
+        </button>
+    </main>
+
+    <!-- Footer -->
+
+
+    <!-- Scripts -->
+    <script src="js/dialog.js?v=20240209e"></script>
+    <script src="js/api.js?v=20240209e"></script>
+    <script src="js/font_scale.js?v=20240209e"></script>
+    <script src="js/charts.v2.js?v=20240209e"></script>
+    <script src="js/dashboard.v2.js?v=20240209e"></script>
+    <script src="js/settings.js?v=20240209e"></script>
+    <script src="js/details.js?v=20240209e"></script>
+    <script src="js/app.js?v=20240209e"></script>
+    <!-- Custom Tooltip -->
+    <div id="custom-tooltip"
+        class="fixed hidden z-50 bg-black-800 border border-black-600 text-white text-xs px-3 py-2 rounded shadow-xl pointer-events-none transition-opacity duration-150 transform -translate-y-full -translate-x-1/2 mt-[-10px]">
+    </div>
+</body>
+
+</html>

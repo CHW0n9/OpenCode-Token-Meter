@@ -1,0 +1,303 @@
+/* Base Styles - Black/White Monochrome Theme */
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;900&display=swap');
+
+html,
+body {
+    background-color: #000000 !important;
+    background: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body {
+    font-family: 'Lato', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #000000;
+    color: #ffffff;
+    overflow-x: hidden;
+    font-size: var(--fs-base);
+    font-weight: 400;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: #000000;
+}
+
+::-webkit-scrollbar-track {
+    background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #333333;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555555;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Form Inputs */
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background-color: #111111;
+    border: 1px solid #333333;
+    color: #ffffff;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+    border-color: #555555;
+}
+
+/* Select Dropdown Styling */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #111111;
+    color: #ffffff;
+    border: 1px solid #333333;
+    border-radius: 6px;
+    padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+    font-size: var(--fs-base);
+    font-weight: 500;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    min-width: 140px;
+}
+
+select:hover {
+    border-color: #555555;
+    background-color: #1a1a1a;
+}
+
+select:focus {
+    border-color: #ffffff;
+    background-color: #1a1a1a;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+}
+
+/* Dropdown options */
+select option {
+    background-color: #111111;
+    color: #ffffff;
+    padding: 0.625rem;
+    font-size: var(--fs-base);
+}
+
+select option:hover,
+select option:focus,
+select option:active,
+select option:checked {
+    background-color: #333333;
+    color: #ffffff;
+}
+
+/* Firefox specific */
+select:-moz-focusring {
+    color: transparent;
+    text-shadow: 0 0 0 #ffffff;
+}
+
+/* Buttons */
+button {
+    transition: all 0.2s;
+    background-color: #222222;
+    border: 1px solid #333333;
+    color: #ffffff;
+}
+
+button:hover {
+    background-color: #333333;
+    border-color: #555555;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* Table Styles */
+table {
+    border-collapse: collapse;
+}
+
+th,
+td {
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+th {
+    font-weight: 900 !important;
+}
+
+/* Card/Container Styles */
+.bg-black-950 {
+    background-color: #0a0a0a !important;
+}
+
+.bg-black-800,
+.bg-black-900 {
+    background-color: #111111;
+    border: 1px solid #222222;
+}
+
+.bg-black-700 {
+    background-color: #1a1a1a;
+    border: 1px solid #333333;
+}
+
+.border-black-700,
+.border-black-800 {
+    border-color: #333333;
+}
+
+/* Unified font sizes globally */
+body {
+    font-size: var(--fs-base);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-size: var(--fs-l);
+    font-weight: 900;
+}
+
+p,
+span,
+div,
+td,
+th {
+    font-size: var(--fs-base);
+}
+
+select,
+input,
+button {
+    font-size: var(--fs-base);
+}
+
+/* Text colors - use white and gray */
+.text-black-400 {
+    color: #888888;
+}
+
+.text-black-500 {
+    color: #666666;
+}
+
+/* Card Hover Effects */
+.stat-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* Status Indicators */
+.status-online {
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* Chart Container */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* Toast Notifications */
+.toast {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Hide scrollbar but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Loading States */
+.skeleton {
+    background: linear-gradient(90deg, #1a1a1a 25%, #333333 50%, #1a1a1a 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Navigation tabs */
+.nav-tab {
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+.nav-tab.text-white {
+    background: #222222;
+    border-color: #444444;
+}
+
+.nav-tab:hover:not(.text-white) {
+    background: #1a1a1a;
+}

@@ -4,8 +4,8 @@
 set -e
 
 APP_NAME="OpenCode Token Meter"
-APP_PATH="App/menubar/dist/${APP_NAME}.app"
-DMG_NAME="OpenCodeTokenMeter-1.0.0"
+APP_PATH="dist/${APP_NAME}.app"
+DMG_NAME="OpenCodeTokenMeter-1.1.0"
 DMG_PATH="build/${DMG_NAME}.dmg"
 VOLUME_NAME="OpenCode Token Meter"
 TMP_DMG="build/tmp.dmg"
@@ -23,12 +23,12 @@ mkdir -p build
 rm -f "$DMG_PATH" "$TMP_DMG"
 
 # Create temporary DMG
-echo "Creating temporary DMG..."
-hdiutil create -size 200m -fs HFS+ -volname "$VOLUME_NAME" "$TMP_DMG" -ov
+echo " - Creating temporary DMG..."
+hdiutil create -size 200m -fs HFS+ -volname "$VOLUME_NAME" "$TMP_DMG" -ov -quiet
 
 # Mount the DMG with read-write access
-echo "Mounting DMG..."
-MOUNT_INFO=$(hdiutil attach "$TMP_DMG" -readwrite -noverify -noautoopen)
+echo " - Mounting..."
+MOUNT_INFO=$(hdiutil attach "$TMP_DMG" -readwrite -noverify -noautoopen 2>/dev/null)
 MOUNT_DIR=$(echo "$MOUNT_INFO" | grep "/Volumes" | sed 's/.*\(\/Volumes\/.*\)/\1/')
 
 if [ -z "$MOUNT_DIR" ]; then
@@ -36,18 +36,16 @@ if [ -z "$MOUNT_DIR" ]; then
     exit 1
 fi
 
-echo "Mounted at: $MOUNT_DIR"
-
 # Wait for mount to complete
 sleep 2
 
 # Copy app to DMG
-echo "Copying app to DMG..."
-cp -R "$APP_PATH" "$MOUNT_DIR/" || { echo "Copy failed"; hdiutil detach "$MOUNT_DIR"; exit 1; }
+echo " - Copying app..."
+cp -R "$APP_PATH" "$MOUNT_DIR/" 2>/dev/null || { echo "Copy failed"; hdiutil detach "$MOUNT_DIR" -quiet; exit 1; }
 
 # Create Applications symlink
-echo "Creating Applications symlink..."
-ln -s /Applications "$MOUNT_DIR/Applications" || echo "Symlink creation failed (non-fatal)"
+echo " - Adding Applications link..."
+ln -s /Applications "$MOUNT_DIR/Applications" 2>/dev/null || true
 
 # Create a README
 cat > "$MOUNT_DIR/README.txt" << 'EOREADME'
@@ -65,17 +63,14 @@ EOREADME
 sleep 2
 
 # Unmount
-echo "Unmounting DMG..."
-hdiutil detach "$MOUNT_DIR" || hdiutil detach "$MOUNT_DIR" -force
+echo " - Compressing..."
+hdiutil detach "$MOUNT_DIR" -quiet 2>/dev/null || hdiutil detach "$MOUNT_DIR" -force -quiet 2>/dev/null
 
 # Convert to compressed DMG
-echo "Converting to compressed DMG..."
-hdiutil convert "$TMP_DMG" -format UDZO -o "$DMG_PATH" -ov
+hdiutil convert "$TMP_DMG" -format UDZO -o "$DMG_PATH" -ov -quiet
 
 # Remove temporary DMG
 rm -f "$TMP_DMG"
 
-echo ""
-echo "✅ DMG created successfully!"
-echo "   Location: $DMG_PATH"
-ls -lh "$DMG_PATH"
+# Output for parent script to parse
+echo "created: $DMG_PATH"
