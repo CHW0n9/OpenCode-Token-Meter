@@ -4,18 +4,32 @@ Settings management for OpenCode Token Meter
 import json
 import os
 import shutil
+import platform
+import copy
 
+APP_NAME = "OpenCode Token Meter"
+SYSTEM = platform.system()
+
+# Platform-specific base directory
+if SYSTEM == "Darwin":  # macOS
+    BASE_DIR = os.path.join(os.path.expanduser("~"), "Library", "Application Support", APP_NAME)
+elif SYSTEM == "Windows":
+    # Use APPDATA (Roaming) for user-specific application data
+    appdata = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+    BASE_DIR = os.path.join(appdata, APP_NAME)
+else:  # Linux and other Unix-like systems
+    BASE_DIR = os.path.join(os.path.expanduser("~"), ".local", "share", APP_NAME)
+
+# Migration: The previous version used macOS-style path on Windows
 OLD_SETTINGS_PATH = os.path.join(
     os.path.expanduser("~"),
-    "Library/Application Support/OpenCode Token Meter/settings.json"
+    "Library", "Application Support", APP_NAME, "settings.json"
 )
 
-SETTINGS_PATH = os.path.join(
-    os.path.expanduser("~"),
-    "Library/Application Support/OpenCode Token Meter/settings.json"
-)
+SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 
 DEFAULT_SETTINGS = {
+    "version": "1.0.1",  # App version - update this when releasing new versions
     "prices": {
         "default": {
             "input": 0.5,      # $ per 1M tokens (Gemini 3 Flash default)
@@ -24,7 +38,21 @@ DEFAULT_SETTINGS = {
             "request": 0.0     # $ per request
         },
         "models": {
-            # GitHub Copilot - Claude Sonnet 4.5 (free tokens, $0.04 per request)
+            # GitHub Copilot - Sorted alphabetically by model name
+            "github-copilot/claude-haiku-4.5": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.0132,
+                "provider": "github-copilot"
+            },
+            "github-copilot/claude-opus-4.5": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.12,
+                "provider": "github-copilot"
+            },
             "github-copilot/claude-sonnet-4.5": {
                 "input": 0.0,
                 "output": 0.0,
@@ -32,31 +60,6 @@ DEFAULT_SETTINGS = {
                 "request": 0.04,
                 "provider": "github-copilot"
             },
-            # GitHub Copilot - Claude Opus 4.5 (free tokens, $0.04 per request)
-            "github-copilot/claude-opus-4.5": {
-                "input": 0.0,
-                "output": 0.0,
-                "caching": 0.0,
-                "request": 0.04,
-                "provider": "github-copilot"
-            },
-            # GitHub Copilot - GPT-5 Mini (free tokens, $0.04 per request)
-            "github-copilot/gpt-5-mini": {
-                "input": 0.0,
-                "output": 0.0,
-                "caching": 0.0,
-                "request": 0.04,
-                "provider": "github-copilot"
-            },
-            # GitHub Copilot - GPT-5.2 Codex (free tokens, $0.04 per request)
-            "github-copilot/gpt-5.2-codex": {
-                "input": 0.0,
-                "output": 0.0,
-                "caching": 0.0,
-                "request": 0.04,
-                "provider": "github-copilot"
-            },
-            # GitHub Copilot - Gemini 3 Flash ($0.0132 per request)
             "github-copilot/gemini-3-flash-preview": {
                 "input": 0.0,
                 "output": 0.0,
@@ -64,15 +67,28 @@ DEFAULT_SETTINGS = {
                 "request": 0.0132,
                 "provider": "github-copilot"
             },
-            # GitHub Copilot - Gemini 3 Pro ($0.04 per request)
-            "github-copilot/gemini-3-pro": {
+            "github-copilot/gemini-3-pro-preview": {
                 "input": 0.0,
                 "output": 0.0,
                 "caching": 0.0,
                 "request": 0.04,
                 "provider": "github-copilot"
             },
-            # Google - Gemini 3 Flash (token pricing)
+            "github-copilot/gpt-5-mini": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.0,
+                "provider": "github-copilot"
+            },
+            "github-copilot/gpt-5.2-codex": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.04,
+                "provider": "github-copilot"
+            },
+            # Google - Sorted alphabetically
             "google/gemini-3-flash-preview": {
                 "input": 0.5,
                 "output": 3.0,
@@ -80,7 +96,6 @@ DEFAULT_SETTINGS = {
                 "request": 0.0,
                 "provider": "google"
             },
-            # Google - Gemini 3 Pro (5x Flash pricing)
             "google/gemini-3-pro": {
                 "input": 2.5,
                 "output": 15.0,
@@ -88,7 +103,7 @@ DEFAULT_SETTINGS = {
                 "request": 0.0,
                 "provider": "google"
             },
-            # NVIDIA - All models are FREE
+            # NVIDIA - Sorted alphabetically
             "nvidia/minimaxai/minimax-m2.1": {
                 "input": 0.0,
                 "output": 0.0,
@@ -103,13 +118,6 @@ DEFAULT_SETTINGS = {
                 "request": 0.0,
                 "provider": "nvidia"
             },
-            "nvidia/z-ai/glm-4.7": {
-                "input": 0.0,
-                "output": 0.0,
-                "caching": 0.0,
-                "request": 0.0,
-                "provider": "nvidia"
-            },
             "nvidia/z-ai/glm4.7": {
                 "input": 0.0,
                 "output": 0.0,
@@ -117,7 +125,7 @@ DEFAULT_SETTINGS = {
                 "request": 0.0,
                 "provider": "nvidia"
             },
-            # OpenCode - All models are FREE
+            # OpenCode - Sorted alphabetically (all models are FREE)
             "opencode/glm-4.7-free": {
                 "input": 0.0,
                 "output": 0.0,
@@ -132,6 +140,13 @@ DEFAULT_SETTINGS = {
                 "request": 0.0,
                 "provider": "opencode"
             },
+            "opencode/kimi-k2.5-free": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.0,
+                "provider": "opencode"
+            },
             "opencode/minimax-m2.1-free": {
                 "input": 0.0,
                 "output": 0.0,
@@ -139,7 +154,9 @@ DEFAULT_SETTINGS = {
                 "request": 0.0,
                 "provider": "opencode"
             }
-        }
+        },
+        "deleted_models": [],
+        "known_default_models": []
     },
     "thresholds": {
         "enabled": False,
@@ -159,6 +176,8 @@ class Settings:
     def __init__(self):
         self._migrate_if_needed()
         self.settings = self._load()
+        if self._normalize_model_settings():
+            self.save()
     
     def _migrate_if_needed(self):
         """Migrate settings from old path to new path if needed"""
@@ -179,11 +198,11 @@ class Settings:
                 with open(SETTINGS_PATH, 'r') as f:
                     loaded = json.load(f)
                     # Deep merge with defaults, but preserve user's models (don't merge DEFAULT models)
-                    result = self._smart_merge(DEFAULT_SETTINGS.copy(), loaded)
+                    result = self._smart_merge(copy.deepcopy(DEFAULT_SETTINGS), loaded)
                     return result
             except:
                 pass
-        return DEFAULT_SETTINGS.copy()
+        return copy.deepcopy(DEFAULT_SETTINGS)
     
     def _deep_merge(self, base, override):
         """Deep merge two dictionaries"""
@@ -200,8 +219,18 @@ class Settings:
         - Merges structure from base (prices.default, thresholds, etc.)
         - Does NOT merge base's prices.models - uses only user's models
         """
+        # Start with a shallow copy of base
         result = base.copy()
         
+        # Explicitly copy nested dictionaries that we might modify to avoid sharing with 'base'
+        if 'prices' in result and isinstance(result['prices'], dict):
+            result['prices'] = result['prices'].copy()
+            if 'default' in result['prices'] and isinstance(result['prices']['default'], dict):
+                result['prices']['default'] = result['prices']['default'].copy()
+        
+        if 'thresholds' in result and isinstance(result['thresholds'], dict):
+            result['thresholds'] = result['thresholds'].copy()
+
         for key, value in override.items():
             if key == 'prices' and isinstance(value, dict):
                 # Handle prices specially: merge default pricing, but replace models entirely
@@ -232,6 +261,57 @@ class Settings:
                 result[key] = value
         
         return result
+
+    def _normalize_model_settings(self):
+        """Normalize model settings and remove redundant overrides"""
+        changed = False
+        prices = self.settings.setdefault('prices', {})
+        models = prices.get('models') if isinstance(prices.get('models'), dict) else {}
+        prices['models'] = models
+
+        deleted_models = prices.get('deleted_models')
+        if not isinstance(deleted_models, list):
+            deleted_models = []
+            changed = True
+        deleted_models = [m for m in deleted_models if isinstance(m, str)]
+
+        known_default_models = prices.get('known_default_models')
+        if not isinstance(known_default_models, list):
+            known_default_models = []
+            changed = True
+        known_default_models = [m for m in known_default_models if isinstance(m, str)]
+
+        default_models = DEFAULT_SETTINGS['prices']['models']
+        if not known_default_models:
+            if models:
+                known_default_models = [m for m in models.keys() if m in default_models]
+            else:
+                known_default_models = list(default_models.keys())
+            changed = True
+        to_remove = []
+        for model_id, user_price in models.items():
+            if model_id in default_models:
+                if model_id in deleted_models:
+                    to_remove.append(model_id)
+                    continue
+                if self._prices_match_default(user_price, default_models[model_id]):
+                    to_remove.append(model_id)
+
+        for model_id in to_remove:
+            del models[model_id]
+            changed = True
+
+        prices['models'] = models
+        prices['deleted_models'] = list(dict.fromkeys(deleted_models))
+        prices['known_default_models'] = list(dict.fromkeys(known_default_models))
+        return changed
+
+    def _prices_match_default(self, user_price, default_price):
+        """Check if user pricing matches default pricing (price fields only)"""
+        for key in ['input', 'output', 'caching', 'request']:
+            if float(user_price.get(key, 0.0)) != float(default_price.get(key, 0.0)):
+                return False
+        return True
     
     def save(self):
         """Save settings to file"""
@@ -280,6 +360,14 @@ class Settings:
             # Try just model_id
             models_dict = self.settings.get('prices', {}).get('models', {})
             prices = models_dict.get(model_id)
+
+        if not prices and model_id:
+            default_models = DEFAULT_SETTINGS['prices']['models']
+            if provider_id:
+                combined_key = f"{provider_id}/{model_id}"
+                prices = default_models.get(combined_key)
+            if not prices:
+                prices = default_models.get(model_id)
         
         # Fall back to default prices
         if not prices:
@@ -316,7 +404,16 @@ class Settings:
         """Add or update model-specific pricing"""
         if 'models' not in self.settings['prices']:
             self.settings['prices']['models'] = {}
+        default_models = DEFAULT_SETTINGS['prices']['models']
+        if model_id in default_models and self._prices_match_default(prices, default_models[model_id]):
+            if model_id in self.settings['prices']['models']:
+                del self.settings['prices']['models'][model_id]
+            self._remove_deleted_model(model_id)
+            self.save()
+            return
+
         self.settings['prices']['models'][model_id] = prices
+        self._remove_deleted_model(model_id)
         self.save()
     
     def get_model_price(self, model_id):
@@ -328,3 +425,105 @@ class Settings:
         if 'models' in self.settings['prices'] and model_id in self.settings['prices']['models']:
             del self.settings['prices']['models'][model_id]
             self.save()
+
+    def mark_model_deleted(self, model_id):
+        """Hide a default model from lists by marking it as deleted"""
+        default_models = DEFAULT_SETTINGS['prices']['models']
+        if model_id not in default_models:
+            return False
+
+        if 'models' in self.settings['prices'] and model_id in self.settings['prices']['models']:
+            del self.settings['prices']['models'][model_id]
+
+        deleted_models = self.settings['prices'].setdefault('deleted_models', [])
+        if model_id not in deleted_models:
+            deleted_models.append(model_id)
+        self.save()
+        return True
+
+    def _remove_deleted_model(self, model_id):
+        deleted_models = self.settings.get('prices', {}).get('deleted_models', [])
+        if model_id in deleted_models:
+            deleted_models.remove(model_id)
+            return True
+        return False
+    
+    def get_version(self):
+        """Get current settings version"""
+        return self.settings.get('version', '1.0.0')
+    
+    def get_app_version(self):
+        """Get app default version"""
+        return DEFAULT_SETTINGS.get('version', '1.0.0')
+    
+    def check_version_update(self):
+        """
+        Check if app version differs from settings version.
+        Returns: (needs_update, current_version, app_version, new_models, customized_models)
+        """
+        current_version = self.get_version()
+        app_version = self.get_app_version()
+        
+        if current_version == app_version:
+            return False, current_version, app_version, [], []
+        
+        # Version changed, check for new models
+        default_models = DEFAULT_SETTINGS['prices']['models']
+        user_models = self.settings.get('prices', {}).get('models', {})
+        deleted_models = set(self.settings.get('prices', {}).get('deleted_models', []))
+        known_default_models = set(self.settings.get('prices', {}).get('known_default_models', []))
+        
+        # Find new models (in default but not in user settings)
+        new_models = []
+        for model_id in default_models:
+            if model_id not in known_default_models and model_id not in deleted_models:
+                new_models.append(model_id)
+        
+        # Find customized models (user price differs from default)
+        customized_models = []
+        for model_id, user_price in user_models.items():
+            if model_id in default_models:
+                default_price = default_models[model_id]
+                if not self._prices_match_default(user_price, default_price):
+                    customized_models.append(model_id)
+        
+        return True, current_version, app_version, new_models, customized_models
+    
+    def add_new_models(self):
+        """
+        Identify new models from defaults without overwriting existing ones.
+        Returns list of added model IDs.
+        """
+        default_models = DEFAULT_SETTINGS['prices']['models']
+        deleted_models = set(self.settings.get('prices', {}).get('deleted_models', []))
+        known_default_models = set(self.settings.get('prices', {}).get('known_default_models', []))
+        
+        added = []
+        for model_id, default_price in default_models.items():
+            if model_id not in known_default_models and model_id not in deleted_models:
+                added.append(model_id)
+
+        return added
+    
+    def update_version(self):
+        """Update settings version to match app version"""
+        self.settings['version'] = self.get_app_version()
+        self.settings['prices']['known_default_models'] = list(DEFAULT_SETTINGS['prices']['models'].keys())
+        self.save()
+    
+    def reset_model_to_default(self, model_id):
+        """Reset a specific model to default pricing"""
+        default_models = DEFAULT_SETTINGS['prices']['models']
+        if model_id in default_models:
+            if 'models' in self.settings['prices'] and model_id in self.settings['prices']['models']:
+                del self.settings['prices']['models'][model_id]
+            self._remove_deleted_model(model_id)
+            self.save()
+            return True
+        return False
+    
+    def reset_all_models_to_default(self):
+        """Reset all models to default pricing"""
+        self.settings['prices']['models'] = {}
+        self.settings['prices']['deleted_models'] = []
+        self.save()
