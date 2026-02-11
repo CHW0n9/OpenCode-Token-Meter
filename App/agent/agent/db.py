@@ -108,6 +108,33 @@ def insert_message(msg):
     conn.commit()
     conn.close()
 
+def insert_messages_batch(messages):
+    """Insert or replace multiple message records in one transaction"""
+    if not messages:
+        return
+        
+    conn = get_conn()
+    c = conn.cursor()
+    
+    data = []
+    for msg in messages:
+        data.append((
+            msg['msg_id'], msg['session_id'], int(msg['ts']),
+            int(msg.get('input', 0)), int(msg.get('output', 0)),
+            int(msg.get('reasoning', 0)), int(msg.get('cache_read', 0)),
+            int(msg.get('cache_write', 0)), msg.get('model'),
+            msg.get('provider_id'), msg.get('model_id'), msg.get('role')
+        ))
+        
+    c.executemany("""
+    INSERT OR REPLACE INTO messages
+    (msg_id, session_id, ts, input, output, reasoning, cache_read, cache_write, model, provider_id, model_id, role)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, data)
+    
+    conn.commit()
+    conn.close()
+
 def _normalize_mtime_ns(value):
     if value is None:
         return None
@@ -141,6 +168,42 @@ def update_file_mtime(path, mtime_ns):
     conn = get_conn()
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO files (path, mtime) VALUES (?, ?)", (path, int(mtime_ns)))
+    conn.commit()
+    conn.close()
+
+def get_all_file_mtimes(cutoff_time=None):
+    """
+    Get file modification times (ns) from database as a dictionary.
+    
+    Args:
+        cutoff_time: If set (unix timestamp), only return files modified AFTER this time.
+    """
+    conn = get_conn()
+    c = conn.cursor()
+    
+    if cutoff_time is not None:
+        # Convert unix timestamp to nanoseconds
+        cutoff_ns = int(cutoff_time * 1_000_000_000)
+        c.execute("SELECT path, mtime FROM files WHERE mtime >= ?", (cutoff_ns,))
+    else:
+        c.execute("SELECT path, mtime FROM files")
+        
+    rows = c.fetchall()
+    conn.close()
+    return {row[0]: _normalize_mtime_ns(row[1]) for row in rows}
+
+def update_file_mtimes_batch(file_mtime_list):
+    """
+    Update or insert multiple file modification times (ns) in database
+    file_mtime_list: list of (path, mtime_ns) tuples
+    """
+    if not file_mtime_list:
+        return
+        
+    conn = get_conn()
+    c = conn.cursor()
+    c.executemany("INSERT OR REPLACE INTO files (path, mtime) VALUES (?, ?)", 
+                  [(path, int(mtime)) for path, mtime in file_mtime_list])
     conn.commit()
     conn.close()
 

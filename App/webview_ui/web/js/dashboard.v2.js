@@ -75,9 +75,9 @@ class Dashboard {
         // Clear existing timer
         if (this.refreshTimer) clearInterval(this.refreshTimer);
 
-        // Smart Polling: Check every 1s for updates
+        // Smart Polling: Check every 5s for updates
         // This is lightweight. If update needed, we load stats.
-        console.log(`[Dashboard] Starting smart polling (1s check)`);
+        console.log(`[Dashboard] Starting smart polling (5s check)`);
 
         let lastTs = 0;
 
@@ -98,7 +98,7 @@ class Dashboard {
             } catch (e) {
                 console.error("Smart polling error:", e);
             }
-        }, 1000);
+        }, 5000);
     }
 
     async loadStats(scope = null) {

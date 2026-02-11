@@ -50,15 +50,15 @@ class Scanner:
         
         return tokens
 
-    def scan_once(self, incremental=True, quick_start=False):
+    def scan_once(self, incremental=True, max_age_days=None, quick_start=False):
         """
         Perform one scan of message files.
         
         Args:
             incremental: If True, only scan files modified since last scan.
-                        If False, scan all files (full scan).
-            quick_start: If True, only scan recent sessions (last 7 days).
-                        This is useful for fast startup.
+            max_age_days: If set, only scan session directories from the last N days.
+                          (replaces quick_start logic if provided)
+            quick_start: Legacy flag. If True, implies max_age_days=7.
         
         Returns count of messages processed.
         """
@@ -71,146 +71,255 @@ class Scanner:
             print(f"Scan complete: MSG_ROOT not found")
             return count
         
-        # Calculate cutoff time for quick_start mode (7 days ago)
-        cutoff_time = int(time.time() - 7 * 24 * 3600) if quick_start else 0
+        # Calculate cutoff time
+        # quick_start legacy support
+        if quick_start and max_age_days is None:
+            max_age_days = 7
+            
+        cutoff_time = 0
+        cache_cutoff = None
+        if max_age_days is not None:
+             cutoff_time = int(time.time() - max_age_days * 24 * 3600)
+             cache_cutoff = cutoff_time
         
-        scan_mode = "quick" if quick_start else ("incremental" if incremental else "full")
-        print(f"Starting {scan_mode} scan...")
+        scan_mode = f"recent-{max_age_days}d" if max_age_days else ("incremental" if incremental else "full")
+        print(f"Starting {scan_mode} scan (optimized)...")
+        
+        # 1. Initialize Cache (Lazy Load)
+        # 1. Initialize Cache (Lazy Load)
+        if not hasattr(self, 'known_file_mtimes'):
+             # No cache, load it
+             from agent.db import get_all_file_mtimes
+             
+             # Calculate cutoff
+             # cache_cutoff is already calculated above
+
+             self.known_file_mtimes = get_all_file_mtimes(cache_cutoff)
+             
+             # Track what we loaded
+             self.cache_days_loaded = max_age_days
+             count_str = f"{len(self.known_file_mtimes)}"
+             scope_str = f"{max_age_days} days" if max_age_days else "FULL history"
+             print(f"Initialized cache with {count_str} files (Scope: {scope_str})")
+             
+        elif max_age_days is not None:
+             # We have a cache, but we are requesting a specific restricted scope (e.g. 1 day).
+             # Check if we should "rotate" (downgrade) the cache to save RAM.
+             # If we currently have a LARGER cache (e.g. 60 days or Full) and want a SMALLER one (1 day),
+             # and we are in a repetitive mode (implied by max_age_days usage in monitor loop),
+             # we should clear and reload.
+             
+             should_reload = False
+             
+             if not hasattr(self, 'cache_days_loaded'):
+                 # We have a cache but don't know its size (legacy/full). 
+                 # If requesting restricted scope, reload.
+                 should_reload = True
+             elif self.cache_days_loaded is None:
+                 # We have FULL cache, requesting restricted. Reload.
+                 should_reload = True
+             elif self.cache_days_loaded > max_age_days:
+                 # We have 60d cache, requesting 1d. Reload.
+                 should_reload = True
+                 
+             if should_reload:
+                 print(f"Cache Rotation: Downgrading cache from {self.cache_days_loaded if hasattr(self, 'cache_days_loaded') else 'Unknown'}d to {max_age_days}d to save RAM.")
+                 # Clear old cache
+                 del self.known_file_mtimes
+                 # Force garbage collection to reclaim RAM immediately for benchmark visibility
+                 import gc
+                 gc.collect()
+                 
+                 from agent.db import get_all_file_mtimes
+                 self.known_file_mtimes = get_all_file_mtimes(cache_cutoff)
+                 self.cache_days_loaded = max_age_days
+                 self.last_cache_reload_ts = time.time()
+
+        # Cache TTL Check for Long-Running Processes
+        # If we are in "Monitor Mode" (max_age_days set) and haven't reloaded cache in a while (e.g. 1 hour),
+        # force a reload to prune files that have aged out of the window.
+        if hasattr(self, 'cache_days_loaded') and self.cache_days_loaded is not None and max_age_days is not None:
+             # Only apply TTL if we are in restricted mode
+             CACHE_TTL = 3600 # 1 hour
+             last_ts = getattr(self, 'last_cache_reload_ts', 0)
+             if time.time() - last_ts > CACHE_TTL:
+                  print(f"Cache TTL ({CACHE_TTL}s) expired. Reloading cache to prune old entries...")
+                  del self.known_file_mtimes
+                  import gc
+                  gc.collect()
+                  from agent.db import get_all_file_mtimes
+                  self.known_file_mtimes = get_all_file_mtimes(cache_cutoff)
+                  self.cache_days_loaded = max_age_days
+                  self.last_cache_reload_ts = time.time()
+
+
+
+        # Import batch functions 
+        from agent.db import insert_messages_batch, update_file_mtimes_batch
+        
+        # Batches for DB operations
+        messages_to_insert = []
+        files_to_update = []
         
         # Iterate through all session directories
-        for ses in os.listdir(MSG_ROOT):
-            ses_dir = os.path.join(MSG_ROOT, ses)
-            if not os.path.isdir(ses_dir):
-                continue
-            
-            # Skip non-session directories
-            if not ses.startswith('ses_'):
-                continue
-            
-            session_count += 1
-            
-            # Quick start optimization: check session directory mtime
-            if quick_start:
-                try:
-                    dir_mtime = int(os.path.getmtime(ses_dir))
-                    if dir_mtime < cutoff_time:
-                        # Session directory not modified in last 7 days, skip it
+        # os.scandir is faster than os.listdir as it provides file type info without extra stat calls
+        try:
+            with os.scandir(MSG_ROOT) as it:
+                for entry in it:
+                    if not entry.is_dir() or not entry.name.startswith('ses_'):
                         continue
-                except:
-                    pass
+                    
+                    session_count += 1
+                    ses_dir = entry.path
+                    ses = entry.name
+                    
+                    # Filter by date if max_age_days is set
+                    if cutoff_time > 0:
+                        # Quick start / Max Age optimization: check session directory mtime
+                        # Note: Directory mtime changes when files are added/removed.
+                        # Ideally we want creation time (st_birthtime on Mac), but mtime is safer for
+                        # "active" sessions. If a session was active recently, its dir mtime is recent.
+                        try:
+                            # entry.stat() is cached by scandir on most platforms
+                            dir_stats = entry.stat()
+                            dir_mtime = int(dir_stats.st_mtime)
+                            
+                            if dir_mtime < cutoff_time:
+                                # Session directory not modified in last N days, skip it
+                                continue
+                        except:
+                            pass
+                    
+                    # Iterate through all message files in session
+                    try:
+                        with os.scandir(ses_dir) as msg_it:
+                            for msg_entry in msg_it:
+                                if not msg_entry.is_file() or not msg_entry.name.endswith('.json') or not msg_entry.name.startswith('msg_'):
+                                    continue
+                                
+                                path = msg_entry.path
+                                fn = msg_entry.name
+                                
+                                # Get file modification time in ns
+                                try:
+                                    # Use stat() from entry which might be cached or faster
+                                    stat_result = msg_entry.stat()
+                                    file_mtime = stat_result.st_mtime_ns
+                                except Exception:
+                                    continue
+                                
+                                # Quick start optimization: skip old files
+                                if cutoff_time > 0 and (file_mtime // 1_000_000_000) < cutoff_time:
+                                    continue
+                                
+                                # Check if we should skip this file (incremental scan)
+                                if incremental:
+                                    db_mtime = self.known_file_mtimes.get(path)
+                                    if db_mtime is not None and db_mtime >= file_mtime:
+                                        # File hasn't changed, skip it
+                                        skipped_count += 1
+                                        continue
+                                
+                                try:
+                                    with open(path, 'r', encoding='utf-8') as f:
+                                        j = json.load(f)
+                                except Exception:
+                                    # Skip files that can't be parsed
+                                    continue
+                                
+                                # Extract message ID
+                                msg_id = j.get('id') or j.get('msg_id') or fn.replace('.json', '')
+                                
+                                # Extract timestamp (convert ms to seconds if needed)
+                                ts = 0
+                                if 'time' in j:
+                                    if isinstance(j['time'], dict):
+                                        ts = j['time'].get('created') or j['time'].get('timestamp') or 0
+                                    else:
+                                        ts = j['time']
+                                elif 'timestamp' in j:
+                                    ts = j['timestamp']
+                                
+                                if ts and ts > 1e12:  # Milliseconds -> seconds
+                                    ts = int(ts / 1000)
+                                else:
+                                    ts = int(ts or time.time())
+                                
+                                # Parse tokens
+                                tokens = self.parse_tokens(j)
+                                
+                                # Extract model info
+                                model = None
+                                provider_id = None
+                                model_id = None
+                                
+                                if 'providerID' in j:
+                                    provider_id = j.get('providerID')
+                                if 'modelID' in j:
+                                    model_id = j.get('modelID')
+                                
+                                if 'model' in j:
+                                    if isinstance(j['model'], dict):
+                                        provider_id = j['model'].get('providerID')
+                                        model_id = j['model'].get('modelID')
+                                        model = f"{provider_id}/{model_id}" if provider_id and model_id else None
+                                    elif isinstance(j['model'], str):
+                                        model = j['model']
+                                elif 'meta' in j and isinstance(j['meta'], dict):
+                                    model = j['meta'].get('model')
+                                
+                                # Infer role
+                                role = j.get('role')
+                                if not role:
+                                    if (tokens['input'] > 0 or tokens['output'] > 0 or 
+                                        tokens['reasoning'] > 0 or tokens['cache_read'] > 0 or 
+                                        tokens['cache_write'] > 0):
+                                        role = 'assistant'
+                                    else:
+                                        role = 'user'
+                                
+                                # Add to batch
+                                messages_to_insert.append({
+                                    'msg_id': msg_id,
+                                    'session_id': ses,
+                                    'ts': ts,
+                                    'input': tokens['input'],
+                                    'output': tokens['output'],
+                                    'reasoning': tokens['reasoning'],
+                                    'cache_read': tokens['cache_read'],
+                                    'cache_write': tokens['cache_write'],
+                                    'model': model,
+                                    'provider_id': provider_id,
+                                    'model_id': model_id,
+                                    'role': role,
+                                })
+                                
+                                files_to_update.append((path, file_mtime))
+                                # Update in-memory cache immediately
+                                self.known_file_mtimes[path] = file_mtime
+                                count += 1
+                                
+                                # Optional: flush batches if they get too large (e.g., > 1000) to avoid memory issues
+                                # For now, we'll just process all at the end as datasets usually aren't massive
+                                
+                    except OSError:
+                        pass
+                        
+        except OSError:
+            pass
+        
+        # 2. Perform batch updates
+        if messages_to_insert:
+            print(f"Batch inserting {len(messages_to_insert)} messages...")
+            insert_messages_batch(messages_to_insert)
             
-            # Iterate through all message files in session
-            for fn in os.listdir(ses_dir):
-                if not fn.endswith('.json') or not fn.startswith('msg_'):
-                    continue
-                
-                path = os.path.join(ses_dir, fn)
-                
-                # Get file modification time in ns
-                try:
-                    file_mtime = os.stat(path).st_mtime_ns
-                except Exception:
-                    continue
-                
-                # Quick start optimization: skip old files
-                if quick_start and (file_mtime // 1_000_000_000) < cutoff_time:
-                    continue
-                
-                # Check if we should skip this file (incremental scan)
-                if incremental:
-                    db_mtime = get_file_mtime(path)
-                    if db_mtime is not None and db_mtime >= file_mtime:
-                        # File hasn't changed, skip it
-                        skipped_count += 1
-                        continue
-                
-                try:
-                    with open(path, 'r', encoding='utf-8') as f:
-                        j = json.load(f)
-                except Exception as e:
-                    # Skip files that can't be parsed
-                    continue
-                
-                # Extract message ID
-                msg_id = j.get('id') or j.get('msg_id') or fn.replace('.json', '')
-                
-                # Extract timestamp (convert ms to seconds if needed)
-                ts = 0
-                if 'time' in j:
-                    if isinstance(j['time'], dict):
-                        ts = j['time'].get('created') or j['time'].get('timestamp') or 0
-                    else:
-                        ts = j['time']
-                elif 'timestamp' in j:
-                    ts = j['timestamp']
-                
-                if ts and ts > 1e12:  # Milliseconds -> seconds
-                    ts = int(ts / 1000)
-                else:
-                    ts = int(ts or time.time())
-                
-                # Parse tokens
-                tokens = self.parse_tokens(j)
-                
-                # Insert into database
-                # Try to capture model information if present in message JSON
-                model = None
-                provider_id = None
-                model_id = None
-                
-                # Try top-level providerID and modelID first (newer format)
-                if 'providerID' in j:
-                    provider_id = j.get('providerID')
-                if 'modelID' in j:
-                    model_id = j.get('modelID')
-                
-                # If not found, try nested model object
-                if 'model' in j:
-                    if isinstance(j['model'], dict):
-                        provider_id = j['model'].get('providerID')
-                        model_id = j['model'].get('modelID')
-                        # For legacy, also store combined model string
-                        model = f"{provider_id}/{model_id}" if provider_id and model_id else None
-                    elif isinstance(j['model'], str):
-                        model = j['model']
-                elif 'meta' in j and isinstance(j['meta'], dict):
-                    model = j['meta'].get('model')
-                
-                # Extract role (user/assistant)
-                # If role is not present in JSON, infer from token usage
-                role = j.get('role')
-                if not role:
-                    # Infer: if has token usage, it's likely an assistant response
-                    if (tokens['input'] > 0 or tokens['output'] > 0 or 
-                        tokens['reasoning'] > 0 or tokens['cache_read'] > 0 or 
-                        tokens['cache_write'] > 0):
-                        role = 'assistant'
-                    else:
-                        role = 'user'
-
-                insert_message({
-                    'msg_id': msg_id,
-                    'session_id': ses,
-                    'ts': ts,
-                    'input': tokens['input'],
-                    'output': tokens['output'],
-                    'reasoning': tokens['reasoning'],
-                    'cache_read': tokens['cache_read'],
-                    'cache_write': tokens['cache_write'],
-                    'model': model,
-                    'provider_id': provider_id,
-                    'model_id': model_id,
-                    'role': role,
-                })
-                
-                # Update file mtime in database
-                update_file_mtime(path, file_mtime)
-                
-                count += 1
+        if files_to_update:
+            print(f"Batch updating {len(files_to_update)} file mtimes...")
+            update_file_mtimes_batch(files_to_update)
         
         self.last_scan_time = int(time.time())
         elapsed = time.time() - start_time
         
-        print(f"Scan complete: {count} files processed, {skipped_count} skipped, {session_count} sessions checked in {elapsed:.2f}s")
+        print(f"Scan complete: {count} new files processed, {skipped_count} skipped, {session_count} sessions checked in {elapsed:.2f}s")
         
         return count

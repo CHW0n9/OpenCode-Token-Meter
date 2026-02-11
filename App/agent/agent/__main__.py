@@ -40,8 +40,18 @@ async def periodic_scan(scanner, stop_event):
             
             # Run scan
             # parse count from return value if possible, currently lambda returns it
+            
+            # TIERED SCANNING STRATEGY
+            # Default: Scan last 1 day (Rapid Monitor) as requested.
+            
+            scan_kwargs = {
+                'incremental': True,
+                'max_age_days': 1, # Always scan last 24h only
+                'quick_start': False
+            }
+            
             count = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: scanner.scan_once(incremental=True, quick_start=False)
+                None, lambda: scanner.scan_once(**scan_kwargs)
             )
             
             if count > 0:
@@ -50,6 +60,9 @@ async def periodic_scan(scanner, stop_event):
                     print(f"Activity detected ({count} new). Switching to FAST mode ({FAST_INTERVAL}s)")
                 current_interval = FAST_INTERVAL
                 no_update_count = 0
+                
+                # If we found activity in a quick scan, maybe force a deep scan soon? 
+                # Not necessarily, the quick scan caught it.
             else:
                 # No activity
                 no_update_count += 1
@@ -70,14 +83,19 @@ async def periodic_scan(scanner, stop_event):
             # or just simple sleep since it's error case
             await asyncio.sleep(SLOW_INTERVAL)
 
-async def full_history_scan(scanner):
+async def full_history_scan():
     """One-time full scan of all historical data in background"""
     try:
         # Wait longer before starting full scan to avoid impacting initial UI
         await asyncio.sleep(30)
         print("Starting full history scan in background...")
+        
+        # Use a FRESH scanner instance to avoid concurrency/locking issues with the main loop
+        from agent.scanner import Scanner
+        bg_scanner = Scanner()
+        
         count = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: scanner.scan_once(incremental=True, quick_start=False)
+            None, lambda: bg_scanner.scan_once(incremental=True, quick_start=False)
         )
         print(f"Full history scan completed: {count} new/updated messages processed")
     except Exception as e:
@@ -155,13 +173,15 @@ async def main(threading_stop_event=None):
             count = scanner.scan_once(incremental=True, quick_start=False)
             print(f"Full initial scan completed: {count} messages indexed")
         else:
-            # Perform initial QUICK scan (only last 7 days for fast startup)
-            print("Performing quick start scan (last 7 days)...")
-            count = scanner.scan_once(incremental=True, quick_start=True)
+            # Perform initial QUICK scan (last 60 days / 2 months)
+            print("Performing quick start scan (last 60 days)...")
+            count = scanner.scan_once(incremental=True, max_age_days=60)
             print(f"Quick start scan completed: {count} messages indexed")
             
-            # Only schedule background full scan if we didn't just do one
-            asyncio.create_task(full_history_scan(scanner))
+            # Schedule a background FULL scan explicitly as requested by user
+            # Start background full history scan (one-off)
+            # This runs independently to catch any historical checks without blocking the main loop
+            asyncio.create_task(full_history_scan())
         
         # Shared event to signal shutdown
         stop_event = asyncio.Event()

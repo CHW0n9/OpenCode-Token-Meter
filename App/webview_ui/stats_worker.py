@@ -308,7 +308,7 @@ def _collect_stats(worker_state):
     payload["display"] = _build_display(payload, thresholds_enabled)
     # Always tell Tray to refresh frequently (e.g. 2s) so it picks up changes immediately.
     # The heavy lifting is done by this worker; reading a JSON file is cheap.
-    payload["refresh_interval"] = 2
+    payload["refresh_interval"] = 5
     
     return payload
 
@@ -345,19 +345,22 @@ def main(stop_event=None):
         try:
             should_update = False
             
-            # 1. Check DB change
+            # 1. Check DB change (Support WAL mode)
+            # In WAL mode, writes go to .db-wal or .db-shm, and main .db file mtime might not change.
+            # We must check all 3 files and take the max mtime.
             current_db_mtime = 0
-            if os.path.exists(DB_PATH):
-                current_db_mtime = os.path.getmtime(DB_PATH)
+            check_files = [DB_PATH, DB_PATH + "-wal", DB_PATH + "-shm"]
             
-            # If WAL mode, main db file might not update mtime? 
-            # SQLite WAL usually updates -shm or -wal files. 
-            # But usually we can check directory or just main file. 
-            # For now, check main file. If wal used, check it too?
-            # Let's keep it simple: check main file.
+            for f in check_files:
+                if os.path.exists(f):
+                    try:
+                        mtime = os.path.getmtime(f)
+                        if mtime > current_db_mtime:
+                            current_db_mtime = mtime
+                    except: pass
             
             if current_db_mtime > last_db_mtime:
-                _log("DB change detected")
+                # _log(f"DB change detected (mtime: {current_db_mtime})")
                 should_update = True
                 last_db_mtime = current_db_mtime
                 
@@ -396,10 +399,10 @@ def main(stop_event=None):
             # Sleep small amount to poll for file changes
             # Check stop_event more frequently during sleep if needed, 
             # but 1s is responsive enough
-            if stop_event and stop_event.wait(1):
+            if stop_event and stop_event.wait(5):
                 break
             if not stop_event:
-                time.sleep(1)
+                time.sleep(5)
             
         except KeyboardInterrupt:
             break

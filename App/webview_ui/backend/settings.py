@@ -29,7 +29,7 @@ OLD_SETTINGS_PATH = os.path.join(
 SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 
 DEFAULT_SETTINGS = {
-    "version": "1.0.1",  # App version - update this when releasing new versions
+    "version": "1.1.0",  # App version - update this when releasing new versions
     "timezone": "local", # "local", "UTC", or specific timezone string like "Asia/Hong_Kong"
     "default_time_scope": "week", # Default dashboard view: "today", "week", "month", "all"
     "prices": {
