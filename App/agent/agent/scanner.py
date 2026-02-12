@@ -5,7 +5,7 @@ import os
 import json
 import time
 from agent.config import MSG_ROOT
-from agent.db import insert_message, init_db, get_file_mtime, update_file_mtime
+from agent.db import insert_message, init_db, get_file_mtime, update_file_mtime, mark_failed_requests
 from agent.util import safe_int
 
 class Scanner:
@@ -155,7 +155,7 @@ class Scanner:
 
 
         # Import batch functions 
-        from agent.db import insert_messages_batch, update_file_mtimes_batch
+        from agent.db import insert_messages_batch, update_file_mtimes_batch, mark_failed_requests
         
         # Batches for DB operations
         messages_to_insert = []
@@ -316,6 +316,9 @@ class Scanner:
         if files_to_update:
             print(f"Batch updating {len(files_to_update)} file mtimes...")
             update_file_mtimes_batch(files_to_update)
+        
+        # Mark failed requests after scanning new messages
+        mark_failed_requests()
         
         self.last_scan_time = int(time.time())
         elapsed = time.time() - start_time
