@@ -1,32 +1,45 @@
 """
-Shared logger utility for error-only logging
+Shared logger utility for consistent logging across the application.
 """
 import os
 import datetime
+import sys
 from .config import BASE_DIR
 
 ERROR_LOG_PATH = os.path.join(BASE_DIR, "error.log")
 
-def log_error(module: str, message: str):
-    """
-    Log an error message to the error.log file.
-    
-    Format: [  MODULE  ] YYYY-MM-DD HH:MM:SS - Message
-    """
+def _get_timestamp():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def _format_log(tag: str, level: str, message: str):
+    timestamp = _get_timestamp()
+    # Fixed width tag for alignment (10 chars)
+    tag_part = f"[{tag:^10}]"
+    if level:
+        return f"{tag_part} {timestamp} - [{level}] {message}"
+    return f"{tag_part} {timestamp} - {message}"
+
+def log_info(tag: str, message: str):
+    line = _format_log(tag, "INFO", message)
+    print(line, flush=True)
+
+def log_warn(tag: str, message: str):
+    line = _format_log(tag, "WARN", message)
+    print(line, flush=True)
+
+def log_error(tag: str, message: str):
+    """Log an error message to terminal and error.log file."""
+    line = _format_log(tag, "ERROR", message)
+    print(line, flush=True, file=sys.stderr)
     try:
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # Ensure module name is centered in brackets, fixed width of 10 chars for the content
-        # internal width 8 chars: "[  API   ]"
-        # User requested: "[  API  ]" which looks like 2 spaces padding?
-        # Let's try to match the requested format: "[  API  ]"
-        # If I use center alignment with width 7 for the name itself?
-        # "[{:^7}]".format("API") -> "[  API  ]"
-        
-        formatted_header = f"[{module:^7}]"
-        log_line = f"{formatted_header} {timestamp} - {message}\n"
-        
         with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(log_line)
+            f.write(line + "\n")
     except Exception:
-        # If logging fails, we can't really do much else, maybe print to stderr if possible
         pass
+
+def log_debug(tag: str, message: str):
+    # Only print if DEBUG env var is set or something similar?
+    # For now, let's just make it available.
+    if os.environ.get("OPENCODE_DEBUG"):
+        line = _format_log(tag, "DEBUG", message)
+        print(line, flush=True)

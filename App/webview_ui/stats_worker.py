@@ -10,6 +10,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agent"))
 
 from agent.config import BASE_DIR
+from agent.logger import log_info
 from backend.settings import Settings, SETTINGS_PATH
 
 try:
@@ -26,12 +27,7 @@ BASE_RIGHT_VALUE_STOP = 6
 
 
 def _log(msg):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    line = f"[StatsWorker] {timestamp} - {msg}"
-    try:
-        print(line, flush=True)
-    except Exception:
-        pass
+    log_info("Stats", msg)
 
 
 def _format_tokens(num):
@@ -327,6 +323,7 @@ def main(stop_event=None):
     
     last_db_mtime = 0
     last_settings_mtime = 0
+    last_payload = None
     
     # Initial run
     try:
@@ -334,6 +331,7 @@ def main(stop_event=None):
             last_db_mtime = os.path.getmtime(DB_PATH)
         payload = _collect_stats(worker_state)
         _write_stats_file(payload)
+        last_payload = payload
     except Exception as e:
         _log(f"Initial stats collection failed: {e}")
 
@@ -346,8 +344,6 @@ def main(stop_event=None):
             should_update = False
             
             # 1. Check DB change (Support WAL mode)
-            # In WAL mode, writes go to .db-wal or .db-shm, and main .db file mtime might not change.
-            # We must check all 3 files and take the max mtime.
             current_db_mtime = 0
             check_files = [DB_PATH, DB_PATH + "-wal", DB_PATH + "-shm"]
             
@@ -360,14 +356,12 @@ def main(stop_event=None):
                     except: pass
             
             if current_db_mtime > last_db_mtime:
-                # _log(f"DB change detected (mtime: {current_db_mtime})")
+                # DB mtime changed. We don't log here to avoid spam, 
+                # but we set should_update.
                 should_update = True
                 last_db_mtime = current_db_mtime
                 
             # 2. Check Settings change
-            # WorkerState handles internal reload logic, but we need to know if we should RUN collect.
-            # WorkerState.check_and_reload is called inside collect.
-            # We can peek at settings mtime here too.
             settings_mtime = 0
             try:
                 if os.path.exists(SETTINGS_PATH):
@@ -375,9 +369,8 @@ def main(stop_event=None):
             except: pass
             
             if settings_mtime > worker_state.last_settings_mtime:
-                _log("Settings change detected")
+                _log(f"Settings change detected (mtime: {settings_mtime})")
                 should_update = True
-                # worker_state will update its internal last_mtime when _collect_stats calls it
                 
             # 3. Check Manual Trigger
             if os.path.exists(TRIGGER_FILE):
@@ -389,16 +382,30 @@ def main(stop_event=None):
             
             if should_update:
                 payload = _collect_stats(worker_state)
-                # We don't define 'refresh_interval' in payload anymore as it's not fixed
-                # But UI might expect it? 
-                # Provide a default or what user set, but it won't control client polling
-                # since client should also use file watch or just poll fast.
-                payload["refresh_interval"] = 0 # 0 could mean "event driven"
-                _write_stats_file(payload)
+                
+                # DATA-LEVEL CHANGE DETECTION
+                # Compare new payload with last written payload (ignoring transient fields)
+                is_real_change = True
+                if last_payload:
+                    p1 = payload.copy()
+                    p2 = last_payload.copy()
+                    # Remove fields that always change or don't affect stats content
+                    for key in ["timestamp", "refresh_interval"]:
+                        p1.pop(key, None)
+                        p2.pop(key, None)
+                    
+                    if p1 == p2:
+                        is_real_change = False
+                
+                if is_real_change:
+                    payload["refresh_interval"] = 0 
+                    _write_stats_file(payload)
+                    last_payload = payload
+                else:
+                    # _log("Stats collected but no actual data change. Skipping write.")
+                    pass
             
             # Sleep small amount to poll for file changes
-            # Check stop_event more frequently during sleep if needed, 
-            # but 1s is responsive enough
             if stop_event and stop_event.wait(5):
                 break
             if not stop_event:
@@ -407,7 +414,7 @@ def main(stop_event=None):
         except KeyboardInterrupt:
             break
         except Exception as e:
-            print(f"[StatsWorker] Error scanning messages: {e}")
+            _log(f"Error in main loop: {e}")
             import traceback
             traceback.print_exc()
             if stop_event:

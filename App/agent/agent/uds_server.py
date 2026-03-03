@@ -9,19 +9,9 @@ import sys
 from agent.config import SOCKET_PATH, USE_TCP, TCP_HOST, TCP_PORT
 from agent.scanner import Scanner
 from agent.db import init_db, migrate_fix_roles
-from agent.logger import log_error
-import datetime
+from agent.logger import log_info, log_error
 
-def log_message(message: str):
-    """Log message to console (File logging DISABLED)"""
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    formatted = f"[{timestamp}] {message}"
-    # print(formatted)
-    # try:
-    #     with open(LOG_PATH, "a") as f:
-    #         f.write(formatted + "\n")
-    # except:
-    #     pass
+# Removed local log_message, using agent.logger instead
 
 # Event used to signal server shutdown from a client command
 _stop_event = None
@@ -90,7 +80,7 @@ async def start_server(scanner):
                 host=TCP_HOST,
                 port=TCP_PORT
             )
-            log_message(f"Agent listening on {TCP_HOST}:{TCP_PORT} (TCP)")
+            log_info("IPC", f"Agent listening on {TCP_HOST}:{TCP_PORT} (TCP)")
         else:
             # Unix Domain Socket for macOS/Linux
             if os.path.exists(SOCKET_PATH):
@@ -110,7 +100,7 @@ async def start_server(scanner):
             except:
                 pass
             
-            log_message(f"Agent listening on {SOCKET_PATH} (UDS)")
+            log_info("IPC", f"Agent listening on {SOCKET_PATH} (UDS)")
         
         global _stop_event
         _stop_event = asyncio.Event()
@@ -126,7 +116,7 @@ async def start_server(scanner):
                         os.remove(SOCKET_PATH)
                 except:
                     pass
-            log_message("Agent server stopped")
+            log_info("IPC", "Agent server stopped")
 
     except Exception as e:
         log_error("Agent", f"Failed to start server: {e}")
@@ -187,23 +177,23 @@ def main():
     
     try:
         init_db()
-        log_message("Running database migration...")
+        log_info("Agent", "Running database migration...")
         fixed_count = migrate_fix_roles()
         if fixed_count > 0:
-            log_message(f"Fixed {fixed_count} messages with NULL role")
+            log_info("Agent", f"Fixed {fixed_count} messages with NULL role")
         
         scanner = Scanner()
         from agent.db import is_db_populated
         
         if not is_db_populated():
-            log_message("Database empty or not populated. Performing FULL INITIAL SCAN...")
+            log_info("Agent", "Database empty or not populated. Performing FULL INITIAL SCAN...")
             # Full scan: incremental=False, quick_start=False
             count = scanner.scan_once(incremental=False, quick_start=False)
-            log_message(f"Full initial scan completed: {count} messages indexed")
+            log_info("Agent", f"Full initial scan completed: {count} messages indexed")
         else:
-            log_message("Performing quick start scan (last 7 days)...")
+            log_info("Agent", "Performing quick start scan (last 7 days)...")
             count = scanner.scan_once(incremental=True, quick_start=True)
-            log_message(f"Quick start scan completed: {count} messages indexed")
+            log_info("Agent", f"Quick start scan completed: {count} messages indexed")
         
         loop.run_until_complete(start_server(scanner))
     except Exception as e:

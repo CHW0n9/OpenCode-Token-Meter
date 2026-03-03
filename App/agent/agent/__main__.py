@@ -10,7 +10,7 @@ from agent.scanner import Scanner
 from agent.uds_server import start_server
 from agent.db import init_db, migrate_fix_roles, is_db_populated
 from agent.config import REFRESH_INTERVAL_SECONDS, LOCKFILE_PATH
-from agent.logger import log_error
+from agent.logger import log_info, log_error
 
 async def periodic_scan(scanner, stop_event):
     """
@@ -25,14 +25,14 @@ async def periodic_scan(scanner, stop_event):
     current_interval = FAST_INTERVAL
     no_update_count = 0
     
-    print(f"Starting periodic scan in FAST mode ({FAST_INTERVAL}s)")
+    log_info("Agent", f"Starting periodic scan in FAST mode ({FAST_INTERVAL}s)")
     
     while not stop_event.is_set():
         try:
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=current_interval)
                 # If we get here, stop_event is set, exit loop
-                print("Periodic scan stopping...")
+                log_info("Agent", "Periodic scan stopping...")
                 break
             except asyncio.TimeoutError:
                 # Timeout triggered, time to scan
@@ -57,7 +57,7 @@ async def periodic_scan(scanner, stop_event):
             if count > 0:
                 # Activity detected
                 if current_interval != FAST_INTERVAL:
-                    print(f"Activity detected ({count} new). Switching to FAST mode ({FAST_INTERVAL}s)")
+                    log_info("Agent", f"Activity detected ({count} new). Switching to FAST mode ({FAST_INTERVAL}s)")
                 current_interval = FAST_INTERVAL
                 no_update_count = 0
                 
@@ -69,12 +69,12 @@ async def periodic_scan(scanner, stop_event):
                 
                 # Check if we should switch to slow mode
                 if current_interval == FAST_INTERVAL and no_update_count >= TRANSITION_THRESHOLD:
-                    print(f"No activity for {TRANSITION_THRESHOLD} scans. Switching to SLOW mode ({SLOW_INTERVAL}s)")
+                    log_info("Agent", f"No activity for {TRANSITION_THRESHOLD} scans. Switching to SLOW mode ({SLOW_INTERVAL}s)")
                     current_interval = SLOW_INTERVAL
                     no_update_count = 0  # Reset counter (not strictly needed for slow mode but clean)
                     
         except asyncio.CancelledError:
-            print("Periodic scan cancelled")
+            log_info("Agent", "Periodic scan cancelled")
             break
         except Exception as e:
             log_error("Scanner", f"Error in periodic scan: {e}")
@@ -97,7 +97,7 @@ async def full_history_scan():
         count = await asyncio.get_event_loop().run_in_executor(
             None, lambda: bg_scanner.scan_once(incremental=True, quick_start=False)
         )
-        print(f"Full history scan completed: {count} new/updated messages processed")
+        log_info("Agent", f"Full history scan completed: {count} new/updated messages processed")
     except Exception as e:
         log_error("Scanner", f"Error in full history scan: {e}")
 
@@ -158,25 +158,25 @@ async def main(threading_stop_event=None):
         has_data = is_db_populated()
         
         # Run migration to fix role fields
-        print("Running database migration...")
+        log_info("Agent", "Running database migration...")
         fixed_count = migrate_fix_roles()
         if fixed_count > 0:
-            print(f"Fixed {fixed_count} messages with NULL role")
+            log_info("Agent", f"Fixed {fixed_count} messages with NULL role")
         
         # Create scanner
         scanner = Scanner()
         
         if not has_data:
-            print("Fresh database detected. Performing FULL initial scan of all messages...")
+            log_info("Agent", "Fresh database detected. Performing FULL initial scan of all messages...")
             # For fresh install, we must scan everything to have correct stats
             # This might take a moment but ensures accuracy
             count = scanner.scan_once(incremental=True, quick_start=False)
-            print(f"Full initial scan completed: {count} messages indexed")
+            log_info("Agent", f"Full initial scan completed: {count} messages indexed")
         else:
             # Perform initial QUICK scan (last 60 days / 2 months)
-            print("Performing quick start scan (last 60 days)...")
+            log_info("Agent", "Performing quick start scan (last 60 days)...")
             count = scanner.scan_once(incremental=True, max_age_days=60)
-            print(f"Quick start scan completed: {count} messages indexed")
+            log_info("Agent", f"Quick start scan completed: {count} messages indexed")
             
             # Schedule a background FULL scan explicitly as requested by user
             # Start background full history scan (one-off)
@@ -191,7 +191,7 @@ async def main(threading_stop_event=None):
             async def monitor_threading_event():
                 while not threading_stop_event.is_set():
                     await asyncio.sleep(1)
-                print("Threading stop event detected, shutting down agent...")
+                log_info("Agent", "Threading stop event detected, shutting down agent...")
                 stop_event.set()
                 # Also need to stop server? server task waits on stop_event, so it should be fine.
             
@@ -206,7 +206,7 @@ async def main(threading_stop_event=None):
         except asyncio.CancelledError:
             pass
         finally:
-            print("Stopping agent...")
+            log_info("Agent", "Stopping agent...")
             stop_event.set()
             # Wait for scan task to finish current iteration if needed
             if not scan_task.done():
@@ -234,5 +234,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nAgent stopped")
+        log_info("Agent", "Agent stopped via KeyboardInterrupt")
         sys.exit(0)

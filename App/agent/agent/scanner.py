@@ -7,6 +7,7 @@ import time
 from agent.config import MSG_ROOT
 from agent.db import insert_message, init_db, get_file_mtime, update_file_mtime, mark_failed_requests
 from agent.util import safe_int
+from agent.logger import log_info, log_error
 
 class Scanner:
     def __init__(self):
@@ -68,7 +69,7 @@ class Scanner:
         session_count = 0
         
         if not os.path.isdir(MSG_ROOT):
-            print(f"Scan complete: MSG_ROOT not found")
+            log_info("Scanner", "Scan complete: MSG_ROOT not found")
             return count
         
         # Calculate cutoff time
@@ -83,7 +84,7 @@ class Scanner:
              cache_cutoff = cutoff_time
         
         scan_mode = f"recent-{max_age_days}d" if max_age_days else ("incremental" if incremental else "full")
-        print(f"Starting {scan_mode} scan (optimized)...")
+        log_info("Scanner", f"Starting {scan_mode} scan (optimized)...")
         
         # 1. Initialize Cache (Lazy Load)
         # 1. Initialize Cache (Lazy Load)
@@ -100,7 +101,7 @@ class Scanner:
              self.cache_days_loaded = max_age_days
              count_str = f"{len(self.known_file_mtimes)}"
              scope_str = f"{max_age_days} days" if max_age_days else "FULL history"
-             print(f"Initialized cache with {count_str} files (Scope: {scope_str})")
+             log_info("Scanner", f"Initialized cache with {count_str} files (Scope: {scope_str})")
              
         elif max_age_days is not None:
              # We have a cache, but we are requesting a specific restricted scope (e.g. 1 day).
@@ -123,7 +124,7 @@ class Scanner:
                  should_reload = True
                  
              if should_reload:
-                 print(f"Cache Rotation: Downgrading cache from {self.cache_days_loaded if hasattr(self, 'cache_days_loaded') else 'Unknown'}d to {max_age_days}d to save RAM.")
+                 log_info("Scanner", f"Cache Rotation: Downgrading cache from {self.cache_days_loaded if hasattr(self, 'cache_days_loaded') else 'Unknown'}d to {max_age_days}d to save RAM.")
                  # Clear old cache
                  del self.known_file_mtimes
                  # Force garbage collection to reclaim RAM immediately for benchmark visibility
@@ -143,7 +144,7 @@ class Scanner:
              CACHE_TTL = 3600 # 1 hour
              last_ts = getattr(self, 'last_cache_reload_ts', 0)
              if time.time() - last_ts > CACHE_TTL:
-                  print(f"Cache TTL ({CACHE_TTL}s) expired. Reloading cache to prune old entries...")
+                  log_info("Scanner", f"Cache TTL ({CACHE_TTL}s) expired. Reloading cache to prune old entries...")
                   del self.known_file_mtimes
                   import gc
                   gc.collect()
@@ -310,11 +311,11 @@ class Scanner:
         
         # 2. Perform batch updates
         if messages_to_insert:
-            print(f"Batch inserting {len(messages_to_insert)} messages...")
+            log_info("Scanner", f"Batch inserting {len(messages_to_insert)} messages...")
             insert_messages_batch(messages_to_insert)
             
         if files_to_update:
-            print(f"Batch updating {len(files_to_update)} file mtimes...")
+            log_info("Scanner", f"Batch updating {len(files_to_update)} file mtimes...")
             update_file_mtimes_batch(files_to_update)
         
         # Mark failed requests after scanning new messages
@@ -323,6 +324,6 @@ class Scanner:
         self.last_scan_time = int(time.time())
         elapsed = time.time() - start_time
         
-        print(f"Scan complete: {count} new files processed, {skipped_count} skipped, {session_count} sessions checked in {elapsed:.2f}s")
+        log_info("Scanner", f"Scan complete: {count} new files processed, {skipped_count} skipped, {session_count} sessions checked in {elapsed:.2f}s")
         
         return count

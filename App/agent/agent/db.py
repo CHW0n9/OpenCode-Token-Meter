@@ -5,6 +5,7 @@ import sqlite3
 import os
 import time
 from agent.config import DB_PATH
+from agent.logger import log_info
 
 def get_local_utc_offset():
     """
@@ -585,7 +586,7 @@ def mark_failed_requests():
     # 1. Ensure column exists
     columns = [row[1] for row in c.execute("PRAGMA table_info(messages)")]
     if 'is_failed' not in columns:
-        print("[DB] Adding is_failed column...")
+        log_info("DB", "Adding is_failed column...")
         c.execute("ALTER TABLE messages ADD COLUMN is_failed INTEGER DEFAULT 0")
         conn.commit()
 
