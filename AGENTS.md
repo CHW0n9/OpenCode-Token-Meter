@@ -74,3 +74,68 @@ This repository uses a **unified spec file** (`OpenCodeTokenMeter.spec`) for all
 1. **SQL Safety**: Always use parameterized queries (`?`). Never use f-strings for SQL inputs.
 2. **Deduplication**: Message counting must use the deduplication logic in `App/agent/agent/db.py`.
 3. **Version Control**: Follow Semantic Versioning. Update `CHANGELOG.md` for every release.
+
+---
+
+## 6) Version Management
+
+### Single Source of Truth
+
+The project uses a **single VERSION file** as the source of truth for version numbers. All components read from this file:
+
+- **Location**: `VERSION` (in project root)
+- **Format**: Plain text file containing only the version number (e.g., `1.1.1`)
+
+### Files That Read VERSION
+
+1. **Python Code**:
+   - `App/webview_ui/__init__.py` - Sets `__version__`
+   - `App/webview_ui/backend/settings.py` - Sets `DEFAULT_SETTINGS["version"]`
+
+2. **Build Scripts**:
+   - `create_dmg.sh` - Sets DMG filename
+   - `OpenCodeTokenMeter.spec` - Sets `CFBundleShortVersionString` (macOS About dialog)
+
+3. **Documentation** (Manual Update Required):
+   - `README.md` - Update download links
+   - `README_CN.md` - Update download links
+
+### Version Update Workflow
+
+When releasing a new version:
+
+1. **Update VERSION file**:
+   ```bash
+   echo "1.2.0" > VERSION
+   ```
+
+2. **Update README files** (manual):
+   - Update `OpenCodeTokenMeter-1.2.0.exe` in README.md
+   - Update `OpenCodeTokenMeter-1.2.0.dmg` in README.md
+   - Update `OpenCodeTokenMeter-1.2.0.exe` in README_CN.md
+   - Update `OpenCodeTokenMeter-1.2.0.dmg` in README_CN.md
+
+3. **Update CHANGELOG.md**:
+   - Add release notes for the new version
+
+4. **Build and Test**:
+   ```bash
+   ./build.sh  # macOS
+   # or
+   .\build_windows.bat  # Windows
+   ```
+
+5. **Commit Changes**:
+   ```bash
+   git add VERSION README.md README_CN.md CHANGELOG.md
+   git commit -m "chore: bump version to 1.2.0"
+   ```
+
+### Fallback Behavior
+
+All components have fallback versions in case the VERSION file is missing:
+- Python: Falls back to `"1.1.1"`
+- Shell scripts: Falls back to `"1.1.1"`
+- PyInstaller spec: Falls back to `'1.1.1'`
+
+This ensures the build process won't fail if the VERSION file is accidentally deleted.

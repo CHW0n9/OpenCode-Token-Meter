@@ -28,8 +28,20 @@ OLD_SETTINGS_PATH = os.path.join(
 
 SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 
+# Read version from VERSION file
+def _get_app_version():
+    """Read version from VERSION file in project root"""
+    version_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "VERSION")
+    try:
+        with open(version_file, 'r') as f:
+            return f.read().strip()
+    except Exception:
+        return "1.1.1"  # Fallback version
+
+APP_VERSION = _get_app_version()
+
 DEFAULT_SETTINGS = {
-    "version": "1.1.1",  # App version - update this when releasing new versions
+    "version": APP_VERSION,  # App version - read from VERSION file
     "timezone": "local", # "local", "UTC", or specific timezone string like "Asia/Hong_Kong"
     "default_time_scope": "week", # Default dashboard view: "today", "week", "month", "all"
     "prices": {
