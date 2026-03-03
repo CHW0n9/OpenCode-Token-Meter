@@ -26,6 +26,9 @@ LOCKFILE_PATH = os.path.join(BASE_DIR, "agent.lock")
 # Message storage root - OpenCode uses .local/share on all platforms including Windows
 MSG_ROOT = os.path.join(os.path.expanduser("~"), ".local", "share", "opencode", "storage", "message")
 
+# OpenCode primary database path
+OPENCODE_DB_PATH = os.path.join(os.path.expanduser("~"), ".local", "share", "opencode", "opencode.db")
+
 # IPC configuration: Use TCP on Windows, Unix Domain Socket on macOS/Linux
 USE_TCP = SYSTEM == "Windows"
 TCP_HOST = "127.0.0.1"

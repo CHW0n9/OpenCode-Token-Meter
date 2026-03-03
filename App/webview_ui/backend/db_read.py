@@ -94,15 +94,40 @@ def _scope_range(scope, conn, timezone="local"):
 
 def _dedup_subquery(where_clause=""):
     base_where = f"WHERE {where_clause}" if where_clause else ""
+    # Filter out failed requests if scope allows (though 'is_failed' column might not exist in old DBs before migration)
+    # But since we migrated, we can assume it exists or handle it safely?
+    # Actually, simpler to just append the check.
+    # Note: We need to handle the case where we might be querying an old DB backup or something, 
+    # but for the main app DB, it should have the column.
+    
+    # We append the filter to base_where.
+    # If base_where is empty, we start with WHERE.
+    # If not, we add AND.
+    
+    filter_failed = "(is_failed = 0 OR is_failed IS NULL)"
+    
+    if base_where:
+        final_where = f"{base_where} AND {filter_failed}"
+    else:
+        final_where = f"WHERE {filter_failed}"
+
     return f"""
     (SELECT ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id
-     FROM messages {base_where}
+     FROM messages {final_where}
      GROUP BY ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id)
     """
 
 
 def _dedup_export_subquery(where_clause=""):
     base_where = f"WHERE {where_clause}" if where_clause else ""
+    
+    filter_failed = "(is_failed = 0 OR is_failed IS NULL)"
+    
+    if base_where:
+        final_where = f"{base_where} AND {filter_failed}"
+    else:
+        final_where = f"WHERE {filter_failed}"
+        
     return f"""
     (SELECT
         MIN(session_id) AS session_id,
@@ -111,7 +136,7 @@ def _dedup_export_subquery(where_clause=""):
         input, output, reasoning, cache_read, cache_write,
         MIN(model) AS model,
         provider_id, model_id
-     FROM messages {base_where}
+     FROM messages {final_where}
      GROUP BY ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id)
     """
 

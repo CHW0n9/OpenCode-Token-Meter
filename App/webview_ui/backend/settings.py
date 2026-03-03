@@ -28,8 +28,20 @@ OLD_SETTINGS_PATH = os.path.join(
 
 SETTINGS_PATH = os.path.join(BASE_DIR, "settings.json")
 
+# Read version from VERSION file
+def _get_app_version():
+    """Read version from VERSION file in project root"""
+    version_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "VERSION")
+    try:
+        with open(version_file, 'r') as f:
+            return f.read().strip()
+    except Exception:
+        return "1.1.1"  # Fallback version
+
+APP_VERSION = _get_app_version()
+
 DEFAULT_SETTINGS = {
-    "version": "1.0.1",  # App version - update this when releasing new versions
+    "version": APP_VERSION,  # App version - read from VERSION file
     "timezone": "local", # "local", "UTC", or specific timezone string like "Asia/Hong_Kong"
     "default_time_scope": "week", # Default dashboard view: "today", "week", "month", "all"
     "prices": {
@@ -76,6 +88,13 @@ DEFAULT_SETTINGS = {
                 "request": 0.0,
                 "provider": "anthropic"
             },
+            "anthropic/claude-sonnet-4-6": {
+                "input": 3.0,
+                "output": 15.0,
+                "caching": 0.30,
+                "request": 0.04,
+                "provider": "anthropic"
+            },
             # GitHub Copilot - Sorted alphabetically by model name
             "github-copilot/claude-haiku-4.5": {
                 "input": 0.0,
@@ -85,6 +104,13 @@ DEFAULT_SETTINGS = {
                 "provider": "github-copilot"
             },
             "github-copilot/claude-opus-4.5": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.12,
+                "provider": "github-copilot"
+            },
+            "github-copilot/claude-opus-4-6": {
                 "input": 0.0,
                 "output": 0.0,
                 "caching": 0.0,
@@ -106,6 +132,13 @@ DEFAULT_SETTINGS = {
                 "provider": "github-copilot"
             },
             "github-copilot/gemini-3-pro-preview": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.04,
+                "provider": "github-copilot"
+            },
+            "github-copilot/gemini-3.1-pro-preview": {
                 "input": 0.0,
                 "output": 0.0,
                 "caching": 0.0,
@@ -149,6 +182,20 @@ DEFAULT_SETTINGS = {
                 "request": 0.0,
                 "provider": "nvidia"
             },
+            "nvidia/minimaxai/minimax-m2.5": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.0,
+                "provider": "nvidia"
+            },
+            "nvidia/moonshotai/kimi-k2.5": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.0,
+                "provider": "nvidia"
+            },
             "nvidia/openai/gpt-oss-120b": {
                 "input": 0.0,
                 "output": 0.0,
@@ -157,6 +204,13 @@ DEFAULT_SETTINGS = {
                 "provider": "nvidia"
             },
             "nvidia/z-ai/glm4.7": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.0,
+                "provider": "nvidia"
+            },
+            "nvidia/z-ai/glm5": {
                 "input": 0.0,
                 "output": 0.0,
                 "caching": 0.0,

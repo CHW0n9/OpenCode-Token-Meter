@@ -48,6 +48,20 @@ class App {
         const urlParams = new URLSearchParams(window.location.search);
         const initialPage = urlParams.get('page') || 'dashboard';
         this.switchView(initialPage);
+
+        // Hide loading screen after everything is initialized
+        this.hideLoadingScreen();
+    }
+
+    hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            loadingScreen.classList.add('fade-out');
+            // Remove from DOM after transition
+            setTimeout(() => {
+                loadingScreen.remove();
+            }, 500);
+        }
     }
 
     setupEventListeners() {

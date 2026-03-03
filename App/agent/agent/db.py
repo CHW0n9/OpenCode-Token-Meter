@@ -5,6 +5,7 @@ import sqlite3
 import os
 import time
 from agent.config import DB_PATH
+from agent.logger import log_info
 
 def get_local_utc_offset():
     """
@@ -65,7 +66,8 @@ def init_db():
       model TEXT,
       provider_id TEXT,
       model_id TEXT,
-      role TEXT
+      role TEXT,
+      is_failed INTEGER DEFAULT 0
     );
     
     CREATE INDEX IF NOT EXISTS idx_messages_ts ON messages(ts);
@@ -73,8 +75,36 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
     
     -- Deduplication index for faster model-specific cost calculations
-    CREATE INDEX IF NOT EXISTS idx_dedup_v2 ON messages(ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id);
+    CREATE INDEX IF NOT EXISTS idx_dedup_v2 ON messages(ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id, is_failed);
+    
+    CREATE TABLE IF NOT EXISTS sync_state (
+      key TEXT PRIMARY KEY,
+      val TEXT
+    );
+    -- Initialize opencode_db_last_ts if not exists
+    INSERT OR IGNORE INTO sync_state (key, val) VALUES ('opencode_db_last_ts', '0');
     """)
+    
+    # Run migrations/maintenance
+    migrate_fix_roles()
+    mark_failed_requests()
+    conn.commit()
+    conn.close()
+
+def get_sync_state(key, default='0'):
+    """Get synchronization state value from sync_state table"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT val FROM sync_state WHERE key = ?", (key,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else default
+
+def update_sync_state(key, val):
+    """Update synchronization state value in sync_state table"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("INSERT OR REPLACE INTO sync_state (key, val) VALUES (?, ?)", (key, str(val)))
     conn.commit()
     conn.close()
 
@@ -96,15 +126,44 @@ def insert_message(msg):
     c = conn.cursor()
     c.execute("""
     INSERT OR REPLACE INTO messages
-    (msg_id, session_id, ts, input, output, reasoning, cache_read, cache_write, model, provider_id, model_id, role)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (msg_id, session_id, ts, input, output, reasoning, cache_read, cache_write, model, provider_id, model_id, role, is_failed)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         msg['msg_id'], msg['session_id'], int(msg['ts']),
         int(msg.get('input', 0)), int(msg.get('output', 0)),
         int(msg.get('reasoning', 0)), int(msg.get('cache_read', 0)),
         int(msg.get('cache_write', 0)), msg.get('model'),
-        msg.get('provider_id'), msg.get('model_id'), msg.get('role')
+        msg.get('provider_id'), msg.get('model_id'), msg.get('role'),
+        int(msg.get('is_failed', 0))
     ))
+    conn.commit()
+    conn.close()
+
+def insert_messages_batch(messages):
+    """Insert or replace multiple message records in one transaction"""
+    if not messages:
+        return
+        
+    conn = get_conn()
+    c = conn.cursor()
+    
+    data = []
+    for msg in messages:
+        data.append((
+            msg['msg_id'], msg['session_id'], int(msg['ts']),
+            int(msg.get('input', 0)), int(msg.get('output', 0)),
+            int(msg.get('reasoning', 0)), int(msg.get('cache_read', 0)),
+            int(msg.get('cache_write', 0)), msg.get('model'),
+            msg.get('provider_id'), msg.get('model_id'), msg.get('role'),
+            int(msg.get('is_failed', 0))
+        ))
+        
+    c.executemany("""
+    INSERT OR REPLACE INTO messages
+    (msg_id, session_id, ts, input, output, reasoning, cache_read, cache_write, model, provider_id, model_id, role, is_failed)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, data)
+    
     conn.commit()
     conn.close()
 
@@ -141,6 +200,42 @@ def update_file_mtime(path, mtime_ns):
     conn = get_conn()
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO files (path, mtime) VALUES (?, ?)", (path, int(mtime_ns)))
+    conn.commit()
+    conn.close()
+
+def get_all_file_mtimes(cutoff_time=None):
+    """
+    Get file modification times (ns) from database as a dictionary.
+    
+    Args:
+        cutoff_time: If set (unix timestamp), only return files modified AFTER this time.
+    """
+    conn = get_conn()
+    c = conn.cursor()
+    
+    if cutoff_time is not None:
+        # Convert unix timestamp to nanoseconds
+        cutoff_ns = int(cutoff_time * 1_000_000_000)
+        c.execute("SELECT path, mtime FROM files WHERE mtime >= ?", (cutoff_ns,))
+    else:
+        c.execute("SELECT path, mtime FROM files")
+        
+    rows = c.fetchall()
+    conn.close()
+    return {row[0]: _normalize_mtime_ns(row[1]) for row in rows}
+
+def update_file_mtimes_batch(file_mtime_list):
+    """
+    Update or insert multiple file modification times (ns) in database
+    file_mtime_list: list of (path, mtime_ns) tuples
+    """
+    if not file_mtime_list:
+        return
+        
+    conn = get_conn()
+    c = conn.cursor()
+    c.executemany("INSERT OR REPLACE INTO files (path, mtime) VALUES (?, ?)", 
+                  [(path, int(mtime)) for path, mtime in file_mtime_list])
     conn.commit()
     conn.close()
 
@@ -502,6 +597,66 @@ def migrate_fix_roles():
     conn.close()
     
     return fixed_count
+
+
+def mark_failed_requests():
+    """
+    Mark failed requests (user messages without subsequent same-model assistant response).
+    Also ensures the column exists.
+    """
+    conn = get_conn()
+    c = conn.cursor()
+    
+    # 1. Ensure column exists
+    columns = [row[1] for row in c.execute("PRAGMA table_info(messages)")]
+    if 'is_failed' not in columns:
+        log_info("DB", "Adding is_failed column...")
+        c.execute("ALTER TABLE messages ADD COLUMN is_failed INTEGER DEFAULT 0")
+        conn.commit()
+
+    # 2. Mark failed requests (strict logic)
+    # Reset is_failed to 0 for users that might have been marked failed but now have responses
+    # (e.g. during a slow stream or subsequent scan)
+    c.execute("UPDATE messages SET is_failed = 0 WHERE role = 'user' AND is_failed = 1")
+    
+    # Mark as failed those that are truly unpaired
+    c.execute("""
+    UPDATE messages
+    SET is_failed = 1
+    WHERE role = 'user'
+    AND NOT EXISTS (
+        SELECT 1 
+        FROM messages a 
+        WHERE a.session_id = messages.session_id 
+        AND a.role = 'assistant'
+        AND a.model_id = messages.model_id
+        AND a.ts >= messages.ts
+        AND (
+            a.input > 0 OR a.output > 0 OR a.reasoning > 0 OR a.cache_read > 0 OR a.cache_write > 0
+        )
+    )
+    """)
+    changes = c.rowcount
+    if changes > 0:
+        # Avoid spamming logs if nothing changed or very few
+        # print(f"[DB] Marked {changes} requests as failed.")
+        pass
+        
+    # 3. Mark the zero-token assistant messages themselves as failed
+    # Logic: Assistant message with 0 tokens across all fields
+    c.execute("""
+    UPDATE messages
+    SET is_failed = 1
+    WHERE role = 'assistant'
+    AND (input IS NULL OR input = 0)
+    AND (output IS NULL OR output = 0)
+    AND (reasoning IS NULL OR reasoning = 0)
+    AND (cache_read IS NULL OR cache_read = 0)
+    AND (cache_write IS NULL OR cache_write = 0)
+    """)
+        
+    conn.commit()
+    conn.close()
 
 
 def aggregate_by_provider(scope):

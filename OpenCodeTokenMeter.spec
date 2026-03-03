@@ -19,6 +19,14 @@ web_dir = os.path.join(webview_ui_dir, 'web')
 # Use assets from web directory as the source for resources (icons)
 resources_dir = os.path.join(web_dir, 'assets')
 
+# Read version from VERSION file
+version_file = os.path.join(project_root, 'VERSION')
+try:
+    with open(version_file, 'r') as f:
+        APP_VERSION = f.read().strip()
+except Exception:
+    APP_VERSION = '1.1.1'  # Fallback version
+
 # Add paths to sys.path for module collection
 import sys
 sys.path.insert(0, webview_ui_dir)
@@ -241,7 +249,7 @@ elif IS_MACOS:
             'NSAppleScriptEnabled': False,
             'CFBundleDocumentTypes': [],
             'LSUIElement': True,  # Hide from Dock (menubar-only app)
-            'CFBundleShortVersionString': '1.1.0',
+            'CFBundleShortVersionString': APP_VERSION,
             'CFBundleVersion': 'macOS',
         },
     )

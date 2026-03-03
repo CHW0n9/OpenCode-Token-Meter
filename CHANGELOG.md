@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1] - 2026-03-04
+
+### Added
+
+- **Dual-Source Database Sync**: Implemented parallel synchronization from both legacy `message.json` files and the new `opencode.db` SQLite database for seamless data migration.
+- **New Model Pricing**: Added pricing support for the latest AI models:
+  - `anthropic/claude-sonnet-4-6` ($0.04/request)
+  - `github-copilot/claude-opus-4-6` ($0.12/request)
+  - `github-copilot/gemini-3.1-pro-preview` ($0.04/request)
+  - `nvidia/moonshotai/kimi-k2.5` (Free)
+  - `nvidia/minimaxai/minimax-m2.5` (Free)
+  - `nvidia/z-ai/glm5` (Free)
+- **Centralized Version Management**: Created `VERSION` file as single source of truth for version numbers across all components.
+
+### Changed
+
+- **Version Management Refactor**: All components (Python code, build scripts, PyInstaller spec) now read version from the centralized `VERSION` file instead of hardcoded values.
+- **Documentation Updates**: Refreshed `README.md` and `README_CN.md` with current architecture and dual-source sync capabilities.
+- **Developer Workflow**: Added comprehensive version management documentation in `AGENTS.md` for easier future updates.
+
+### Fixed
+
+- **Sync State Advancement Bug**: Fixed a critical issue where parsing errors would still advance the sync state, causing messages to be permanently skipped.
+- **Timestamp Type Safety**: Added robust type checking for JSON timestamps to prevent `TypeError` when comparing string timestamps with integers.
+- **Deduplication Logic**: Enhanced message deduplication to work correctly with both legacy file-based and new database-based message sources.
+
+### Technical Details
+
+#### Database Sync Architecture
+
+- **Parallel Scanning**: Both legacy message directory (`~/.local/share/opencode/storage/message/`) and `opencode.db` are scanned simultaneously.
+- **State Management**: Added `sync_state` table in `index.db` to track synchronization progress for each data source.
+- **Fallback Behavior**: Graceful degradation if one data source is unavailable.
+
+#### Version Management
+
+- **Single Source of Truth**: `VERSION` file in project root contains the version number.
+- **Automatic Propagation**: Python modules, shell scripts, and PyInstaller spec all read from `VERSION` file.
+- **Fallback Support**: All components have hardcoded fallback versions (`1.1.1`) if `VERSION` file is missing.
+
+#### Testing
+
+- Added regression tests in `tests/test_opencode_db_sync.py` for database synchronization logic.
+- All existing tests continue to pass with the new dual-source architecture.
+
+---
+
 ## [1.1.0] - 2026-02-11
 
 ### Added

@@ -5,7 +5,16 @@ set -e
 
 APP_NAME="OpenCode Token Meter"
 APP_PATH="dist/${APP_NAME}.app"
-DMG_NAME="OpenCodeTokenMeter-1.1.0"
+
+# Read version from VERSION file
+VERSION_FILE="$(cd "$(dirname "$0")" && pwd)/VERSION"
+if [ -f "$VERSION_FILE" ]; then
+    VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+else
+    VERSION="1.1.1"  # Fallback version
+fi
+
+DMG_NAME="OpenCodeTokenMeter-${VERSION}"
 DMG_PATH="build/${DMG_NAME}.dmg"
 VOLUME_NAME="OpenCode Token Meter"
 TMP_DMG="build/tmp.dmg"

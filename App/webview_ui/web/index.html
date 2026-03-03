@@ -6,6 +6,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenCode Token Meter</title>
 
+    <!-- Load-Critical Styles (Render immediately) -->
+    <style id="critical-loading-styles">
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background-color: #0a0a0a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.4s ease-out;
+        }
+
+        .spinner {
+            width: 80px;
+            height: 80px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #loading-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+
     <!-- Global Typography System -->
     <style>
         :root {
@@ -58,53 +92,57 @@
         }
     </style>
 
-    <!-- External Libraries -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="js/vendor/chart.min.js"></script>
+    <!-- External Libraries - Defer to prevent render blocking -->
+    <script src="https://cdn.tailwindcss.com" defer></script>
+    <script src="js/vendor/chart.min.js" defer></script>
 
-    <!-- Tailwind Config - Black/White Monochrome with smaller fonts -->
+    <!-- Tailwind Config - Defer to match Tailwind -->
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        black: {
-                            50: '#fafafa',
-                            100: '#f5f5f5',
-                            200: '#e5e5e5',
-                            300: '#d4d4d4',
-                            400: '#a3a3a3',
-                            500: '#737373',
-                            600: '#525252',
-                            700: '#404040',
-                            800: '#262626',
-                            900: '#171717',
-                            950: '#0a0a0a',
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Lato', 'system-ui', 'sans-serif'],
-                    },
-                    fontWeight: {
-                        normal: '400',
-                        bold: '900',
-                    },
-                    fontSize: {
-                        's': ['var(--fs-s)', { lineHeight: '1.2' }],
-                        'base': ['var(--fs-base)', { lineHeight: '1.5' }],
-                        'l': ['var(--fs-l)', { lineHeight: '1.4' }],
-                        'xl': ['var(--fs-xl)', { lineHeight: '1.2' }],
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.tailwind) {
+                tailwind.config = {
+                    darkMode: 'class',
+                    theme: {
+                        extend: {
+                            colors: {
+                                black: {
+                                    50: '#fafafa',
+                                    100: '#f5f5f5',
+                                    200: '#e5e5e5',
+                                    300: '#d4d4d4',
+                                    400: '#a3a3a3',
+                                    500: '#737373',
+                                    600: '#525252',
+                                    700: '#404040',
+                                    800: '#262626',
+                                    900: '#171717',
+                                    950: '#0a0a0a',
+                                }
+                            },
+                            fontFamily: {
+                                sans: ['Lato', 'system-ui', 'sans-serif'],
+                            },
+                            fontWeight: {
+                                normal: '400',
+                                bold: '900',
+                            },
+                            fontSize: {
+                                's': ['var(--fs-s)', { lineHeight: '1.2' }],
+                                'base': ['var(--fs-base)', { lineHeight: '1.5' }],
+                                'l': ['var(--fs-l)', { lineHeight: '1.4' }],
+                                'xl': ['var(--fs-xl)', { lineHeight: '1.2' }],
 
-                        // Maintain legacy keys mapped to new variables for stability during transition
-                        'xs': 'var(--fs-s)',
-                        'sm': 'var(--fs-s)',
-                        'lg': 'var(--fs-l)',
-                        '2xl': 'var(--fs-xl)',
+                                // Maintain legacy keys mapped to new variables for stability during transition
+                                'xs': 'var(--fs-s)',
+                                'sm': 'var(--fs-s)',
+                                'lg': 'var(--fs-l)',
+                                '2xl': 'var(--fs-xl)',
+                            }
+                        }
                     }
                 }
             }
-        }
+        });
     </script>
 
     <!-- Local Styles -->
@@ -113,6 +151,11 @@
 
 <body
     class="bg-black-950 text-white h-screen flex flex-col overflow-hidden selection:bg-white selection:text-black-950 border border-black-800">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="spinner"></div>
+    </div>
 
     <!-- Top Navigation -->
     <nav class="bg-black-900 border-b border-black-800 h-16 flex-none z-20">

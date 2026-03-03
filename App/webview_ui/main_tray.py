@@ -38,11 +38,12 @@ except ImportError as e1:
         else:
             from backend.tray import TrayManager
     except ImportError as e2:
-        print(f"[WARN] Failed to import TrayManager: {e2}")
+        log_warn("Tray", f"Failed to import TrayManager: {e2}")
         TrayManager = None
 
 # Import agent config for socket paths - THIS IS THE CORRECT WAY
 from agent.config import BASE_DIR, SOCKET_PATH, TCP_HOST, TCP_PORT, USE_TCP
+from agent.logger import log_info, log_warn, log_error
 from backend.settings import Settings
 
 # Import modules for threading
@@ -56,7 +57,7 @@ try:
         # If running from App/webview_ui/, this works
         import stats_worker
 except ImportError as e:
-    print(f"[ERROR] Failed to import modules for threading: {e}")
+    log_error("Tray", f"Failed to import modules for threading: {e}")
 
 # PID file to track webview process
 WEBVIEW_PID_FILE = os.path.join(BASE_DIR, "webview.pid")
@@ -83,27 +84,27 @@ class TrayAppWithSubprocess:
 
     def _start_agent_thread(self):
         """Start the agent in a background thread"""
-        print("[INFO] Starting Agent thread...")
+        log_info("Tray", "Starting Agent thread...")
         
         def agent_runner():
             try:
                 # asyncio.run() creates a new event loop for this thread
                 asyncio.run(agent_main.main(threading_stop_event=self.agent_stop_event))
             except Exception as e:
-                print(f"[ERROR] Agent thread failed: {e}")
+                log_error("Tray", f"Agent thread failed: {e}")
 
         self.agent_thread = threading.Thread(target=agent_runner, name="AgentThread", daemon=True)
         self.agent_thread.start()
 
     def _start_stats_thread(self):
         """Start the stats worker in a background thread"""
-        print("[INFO] Starting Stats Worker thread...")
+        log_info("Tray", "Starting Stats Worker thread...")
         
         def stats_runner():
             try:
                 stats_worker.main(stop_event=self.stats_stop_event)
             except Exception as e:
-                print(f"[ERROR] Stats worker thread failed: {e}")
+                log_error("Tray", f"Stats worker thread failed: {e}")
                 
         self.stats_thread = threading.Thread(target=stats_runner, name="StatsThread", daemon=True)
         self.stats_thread.start()
@@ -160,7 +161,7 @@ class TrayAppWithSubprocess:
                 if "main.py" in output or "OpenCode Token Meter" in output or "webview" in output:
                     return True
                 else:
-                    print(f"[INFO] PID {pid} exists but seems to be a different process: {output[:50]}...")
+                    log_info("Tray", f"PID {pid} exists but seems to be a different process: {output[:50]}...")
                     self._clear_webview_pid()
                     return False
             else:
@@ -168,7 +169,7 @@ class TrayAppWithSubprocess:
                 # If ps failed, satisfy with kill check
                 return True
         except Exception as e:
-            print(f"[WARN] Failed to verify process args: {e}")
+            log_warn("Tray", f"Failed to verify process args: {e}")
             return True # Fallback to trusting os.kill logic if ps fails
             
         return True
@@ -181,19 +182,19 @@ class TrayAppWithSubprocess:
             with open(NAV_FILE, 'w') as f:
                 json.dump(nav_data, f)
         except Exception as e:
-            print(f"[WARN] Failed to write nav file: {e}")
+            log_warn("Tray", f"Failed to write nav file: {e}")
 
     def start_webview_subprocess(self, page='dashboard'):
         """Start webview in a separate subprocess (only if not already running)"""
         # Check if already running
         if self._is_webview_running():
-            print(f"[INFO] Webview already running (PID: {self._get_webview_pid()}), navigating to {page}")
+            log_info("Tray", f"Webview already running (PID: {self._get_webview_pid()}), navigating to {page}")
             self._write_nav_file(page)
             return
 
         if self.webview_process is not None:
             if self.webview_process.poll() is None:
-                print(f"[INFO] Webview subprocess already running (PID: {self.webview_process.pid})")
+                log_info("Tray", f"Webview subprocess already running (PID: {self.webview_process.pid})")
                 self._write_nav_file(page)
                 return
             else:
@@ -208,14 +209,14 @@ class TrayAppWithSubprocess:
             # Use main.py instead of webview_runner.py
             webview_script = os.path.join(os.path.dirname(__file__), 'main.py')
             if not os.path.exists(webview_script):
-                print(f"[ERROR] Webview script not found: {webview_script}")
+                log_error("Tray", f"Webview script not found: {webview_script}")
                 return
             cmd = [sys.executable, webview_script, '--no-tray', '--page', page]
 
         if self.debug:
             cmd.append('--debug')
 
-        print(f"[INFO] Starting webview subprocess with command: {cmd}")
+        log_info("Tray", f"Starting webview subprocess with command: {cmd}")
 
         # Start subprocess - capture output for debugging
         stdout_dest = None if self.debug else subprocess.DEVNULL
@@ -240,7 +241,7 @@ class TrayAppWithSubprocess:
 
         # Store PID
         self._save_webview_pid(self.webview_process.pid)
-        print(f"[INFO] Webview started (PID: {self.webview_process.pid})")
+        log_info("Tray", f"Webview started (PID: {self.webview_process.pid})")
 
         # Register cleanup
         atexit.register(self.cleanup_webview)
@@ -311,7 +312,7 @@ class TrayAppWithSubprocess:
 
     def on_reconnect(self):
         """Called when user requests agent reconnect"""
-        print("[INFO] Reconnect requested - Restarting Agent Thread")
+        log_info("Tray", "Reconnect requested - Restarting Agent Thread")
         
         # Stop existing
         self.agent_stop_event.set()
@@ -324,7 +325,7 @@ class TrayAppWithSubprocess:
         
     def on_quit(self):
         """Called when user requests quit"""
-        print("[INFO] Quit requested")
+        log_info("Tray", "Quit requested")
         self._cleanup_on_exit()
         # Do NOT call sys.exit(0) here - let rumps handle the exit loop
         # The TrayManager will call rumps.quit_application() after this callback returns
@@ -334,7 +335,7 @@ class TrayAppWithSubprocess:
             return
         self._cleanup_called = True
         
-        print("[INFO] Cleaning up threads and processes...")
+        log_info("Tray", "Cleaning up threads and processes...")
         
         # Signal threads to stop
         self.agent_stop_event.set()
@@ -348,7 +349,7 @@ class TrayAppWithSubprocess:
         
     def run(self):
         """Run the application"""
-        print(f"[INFO] Starting OpenCode Token Meter (Tray Mode) on {self.platform}")
+        log_info("Tray", f"Starting OpenCode Token Meter (Tray Mode) on {self.platform}")
         
         # Ensure BASE_DIR exists
         os.makedirs(BASE_DIR, exist_ok=True)
@@ -361,7 +362,7 @@ class TrayAppWithSubprocess:
         
         # Create and run tray with all callbacks
         if TrayManager is None:
-            print("[ERROR] TrayManager not available. Falling back to window-only mode.")
+            log_error("Tray", "TrayManager not available. Falling back to window-only mode.")
             # Launch window directly and exit tray process since we can't show tray
             self.start_webview_subprocess(page='dashboard')
             # Wait for subprocess?
@@ -386,7 +387,7 @@ class TrayAppWithSubprocess:
         
         # Auto-show window if requested
         if self.show_window:
-            print("[INFO] Auto-showing window on startup")
+            log_info("Tray", "Auto-showing window on startup")
             # We need to defer this slightly to ensure tray is ready? 
             # Or just call it directly. subprocess call is non-blocking to tray loop.
             self.start_webview_subprocess(page='dashboard')
