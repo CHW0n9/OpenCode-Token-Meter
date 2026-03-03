@@ -178,7 +178,7 @@ class Scanner:
         except Exception as e:
             log_error("Scanner", f"Error during opencode.db sync: {e}")
 
-
+    def scan_once(self, incremental=True, max_age_days=None, quick_start=False):
         """
         Perform one scan of message files.
         
