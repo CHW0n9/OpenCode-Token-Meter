@@ -64,7 +64,7 @@ class Scanner:
         
         try:
             # Get the last sync timestamp
-            last_ts = int(get_sync_state('opencode_db_last_ts', '0'))
+            last_ts = safe_int(get_sync_state('opencode_db_last_ts', '0'))
             
             # Connect in read-only mode to opencode.db
             conn = sqlite3.connect(f'file:{OPENCODE_DB_PATH}?mode=ro', uri=True)
@@ -96,8 +96,6 @@ class Scanner:
                     
                     # Extract timestamp (convert ms to seconds if needed)
                     time_updated = row['time_updated']
-                    if time_updated > max_ts:
-                        max_ts = time_updated
                     
                     ts = 0
                     if 'time' in data:
@@ -108,10 +106,10 @@ class Scanner:
                     elif 'timestamp' in data:
                         ts = data['timestamp']
                     
-                    if ts and ts > 1e12:  # Milliseconds -> seconds
-                        ts = int(ts / 1000)
+                    if ts and safe_int(ts) > 1e12:  # Milliseconds -> seconds
+                        ts = int(safe_int(ts) / 1000)
                     else:
-                        ts = int(ts or time.time())
+                        ts = int(safe_int(ts) or time.time())
                     
                     # Parse tokens using existing parse_tokens method
                     tokens = self.parse_tokens(data)
@@ -161,6 +159,9 @@ class Scanner:
                         'model_id': model_id,
                         'role': role,
                     })
+
+                    if time_updated > max_ts:
+                        max_ts = time_updated
                 
                 except Exception as e:
                     log_error("Scanner", f"Error syncing message {row['id']}: {e}")
