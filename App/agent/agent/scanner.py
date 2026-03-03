@@ -4,8 +4,9 @@ Scanner for OpenCode message files
 import os
 import json
 import time
-from agent.config import MSG_ROOT
-from agent.db import insert_message, init_db, get_file_mtime, update_file_mtime, mark_failed_requests
+import sqlite3
+from agent.config import MSG_ROOT, OPENCODE_DB_PATH
+from agent.db import insert_message, init_db, get_file_mtime, update_file_mtime, mark_failed_requests, get_sync_state, update_sync_state
 from agent.util import safe_int
 from agent.logger import log_info, log_error
 
@@ -51,7 +52,133 @@ class Scanner:
         
         return tokens
 
-    def scan_once(self, incremental=True, max_age_days=None, quick_start=False):
+    def _sync_from_opencode_db(self):
+        """
+        Synchronize messages from opencode.db (read-only mode).
+        Reads messages from opencode_db_last_ts onward and inserts them into index.db.
+        """
+        # Check if opencode.db exists
+        if not os.path.exists(OPENCODE_DB_PATH):
+            log_info("Scanner", "opencode.db not found, skipping sync")
+            return
+        
+        try:
+            # Get the last sync timestamp
+            last_ts = int(get_sync_state('opencode_db_last_ts', '0'))
+            
+            # Connect in read-only mode to opencode.db
+            conn = sqlite3.connect(f'file:{OPENCODE_DB_PATH}?mode=ro', uri=True)
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            
+            # Query messages updated after last sync
+            c.execute(
+                "SELECT id, session_id, time_updated, data FROM message WHERE time_updated > ? ORDER BY time_updated ASC",
+                (last_ts,)
+            )
+            
+            rows = c.fetchall()
+            conn.close()
+            
+            if not rows:
+                log_info("Scanner", "No new messages from opencode.db to sync")
+                return
+            
+            log_info("Scanner", f"Syncing {len(rows)} messages from opencode.db...")
+            
+            max_ts = last_ts
+            messages_to_insert = []
+            
+            for row in rows:
+                try:
+                    # Parse the JSON data
+                    data = json.loads(row['data'])
+                    
+                    # Extract timestamp (convert ms to seconds if needed)
+                    time_updated = row['time_updated']
+                    if time_updated > max_ts:
+                        max_ts = time_updated
+                    
+                    ts = 0
+                    if 'time' in data:
+                        if isinstance(data['time'], dict):
+                            ts = data['time'].get('created') or data['time'].get('timestamp') or 0
+                        else:
+                            ts = data['time']
+                    elif 'timestamp' in data:
+                        ts = data['timestamp']
+                    
+                    if ts and ts > 1e12:  # Milliseconds -> seconds
+                        ts = int(ts / 1000)
+                    else:
+                        ts = int(ts or time.time())
+                    
+                    # Parse tokens using existing parse_tokens method
+                    tokens = self.parse_tokens(data)
+                    
+                    # Extract model info
+                    model = None
+                    provider_id = None
+                    model_id = None
+                    
+                    if 'providerID' in data:
+                        provider_id = data.get('providerID')
+                    if 'modelID' in data:
+                        model_id = data.get('modelID')
+                    
+                    if 'model' in data:
+                        if isinstance(data['model'], dict):
+                            provider_id = data['model'].get('providerID')
+                            model_id = data['model'].get('modelID')
+                            model = f"{provider_id}/{model_id}" if provider_id and model_id else None
+                        elif isinstance(data['model'], str):
+                            model = data['model']
+                    elif 'meta' in data and isinstance(data['meta'], dict):
+                        model = data['meta'].get('model')
+                    
+                    # Infer role
+                    role = data.get('role')
+                    if not role:
+                        if (tokens['input'] > 0 or tokens['output'] > 0 or 
+                            tokens['reasoning'] > 0 or tokens['cache_read'] > 0 or 
+                            tokens['cache_write'] > 0):
+                            role = 'assistant'
+                        else:
+                            role = 'user'
+                    
+                    # Add to batch
+                    messages_to_insert.append({
+                        'msg_id': row['id'],
+                        'session_id': row['session_id'],
+                        'ts': ts,
+                        'input': tokens['input'],
+                        'output': tokens['output'],
+                        'reasoning': tokens['reasoning'],
+                        'cache_read': tokens['cache_read'],
+                        'cache_write': tokens['cache_write'],
+                        'model': model,
+                        'provider_id': provider_id,
+                        'model_id': model_id,
+                        'role': role,
+                    })
+                
+                except Exception as e:
+                    log_error("Scanner", f"Error syncing message {row['id']}: {e}")
+                    continue
+            
+            # Batch insert messages
+            if messages_to_insert:
+                from agent.db import insert_messages_batch
+                insert_messages_batch(messages_to_insert)
+                log_info("Scanner", f"Inserted {len(messages_to_insert)} messages from opencode.db")
+            
+            # Update sync state with max timestamp
+            update_sync_state('opencode_db_last_ts', max_ts)
+            
+        except Exception as e:
+            log_error("Scanner", f"Error during opencode.db sync: {e}")
+
+
         """
         Perform one scan of message files.
         
@@ -317,6 +444,9 @@ class Scanner:
         if files_to_update:
             log_info("Scanner", f"Batch updating {len(files_to_update)} file mtimes...")
             update_file_mtimes_batch(files_to_update)
+        
+        # Sync messages from opencode.db
+        self._sync_from_opencode_db()
         
         # Mark failed requests after scanning new messages
         mark_failed_requests()
