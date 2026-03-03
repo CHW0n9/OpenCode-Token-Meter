@@ -31,11 +31,11 @@
 ### Option 1: Pre-built Binaries (Recommended)
 
 #### Windows
-1. Download `OpenCodeTokenMeter-1.1.0.exe` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
+1. Download `OpenCodeTokenMeter-1.1.1.exe` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
 2. Run the executable to start the application. The app will appear in your system tray.
 
 #### macOS
-1. Download `OpenCodeTokenMeter-1.1.0.dmg` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
+1. Download `OpenCodeTokenMeter-1.1.1.dmg` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
 2. Drag "OpenCode Token Meter.app" to your Applications folder.
 3. **Security Note**: Since the app is unsigned, you may need to go to **System Settings → Privacy & Security** and click **"Open Anyway"** on first launch.
 

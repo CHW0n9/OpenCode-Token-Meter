@@ -5,7 +5,7 @@ set -e
 
 APP_NAME="OpenCode Token Meter"
 APP_PATH="dist/${APP_NAME}.app"
-DMG_NAME="OpenCodeTokenMeter-1.1.0"
+DMG_NAME="OpenCodeTokenMeter-1.1.1"
 DMG_PATH="build/${DMG_NAME}.dmg"
 VOLUME_NAME="OpenCode Token Meter"
 TMP_DMG="build/tmp.dmg"

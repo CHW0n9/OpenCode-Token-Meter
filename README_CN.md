@@ -31,11 +31,11 @@
 ### 选项 1：预构建二进制文件（推荐）
 
 #### Windows
-1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter-1.1.0.exe`。
+1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter-1.1.1.exe`。
 2. 运行可执行文件即可启动应用。应用将出现在系统托盘中。
 
 #### macOS
-1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter-1.1.0.dmg`。
+1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter-1.1.1.dmg`。
 2. 将 "OpenCode Token Meter.app" 拖入您的应用程序 (Applications) 文件夹。
 3. **安全说明**：由于应用未签名，首次启动时您可能需要在 **系统设置 → 隐私与安全** 中点击 **“仍要打开”**。
 

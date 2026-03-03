@@ -241,7 +241,7 @@ elif IS_MACOS:
             'NSAppleScriptEnabled': False,
             'CFBundleDocumentTypes': [],
             'LSUIElement': True,  # Hide from Dock (menubar-only app)
-            'CFBundleShortVersionString': '1.1.0',
+            'CFBundleShortVersionString': '1.1.1',
             'CFBundleVersion': 'macOS',
         },
     )
