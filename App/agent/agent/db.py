@@ -76,11 +76,35 @@ def init_db():
     
     -- Deduplication index for faster model-specific cost calculations
     CREATE INDEX IF NOT EXISTS idx_dedup_v2 ON messages(ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id, is_failed);
+    
+    CREATE TABLE IF NOT EXISTS sync_state (
+      key TEXT PRIMARY KEY,
+      val TEXT
+    );
+    -- Initialize opencode_db_last_ts if not exists
+    INSERT OR IGNORE INTO sync_state (key, val) VALUES ('opencode_db_last_ts', '0');
     """)
     
     # Run migrations/maintenance
     migrate_fix_roles()
     mark_failed_requests()
+    conn.commit()
+    conn.close()
+
+def get_sync_state(key, default='0'):
+    """Get synchronization state value from sync_state table"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT val FROM sync_state WHERE key = ?", (key,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else default
+
+def update_sync_state(key, val):
+    """Update synchronization state value in sync_state table"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("INSERT OR REPLACE INTO sync_state (key, val) VALUES (?, ?)", (key, str(val)))
     conn.commit()
     conn.close()
 
