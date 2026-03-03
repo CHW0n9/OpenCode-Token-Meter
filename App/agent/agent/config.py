@@ -35,5 +35,5 @@ TCP_HOST = "127.0.0.1"
 TCP_PORT = int(os.environ.get("OPENCODE_AGENT_PORT", "50899"))
 SOCKET_PATH = os.path.join(BASE_DIR, "agent.sock")  # Used on Unix systems
 
-REFRESH_INTERVAL_SECONDS = 300  # 5 minutes
+REFRESH_INTERVAL_SECONDS = 30  # 30 seconds - Real-time tracking via database synchronization
 TRIGGER_FILE = os.path.join(BASE_DIR, "refresh_trigger")
