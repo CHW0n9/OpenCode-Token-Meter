@@ -138,9 +138,9 @@ class TrayAppWithSubprocess:
         pid = self._get_webview_pid()
         if pid is None:
             return False
-            
+        
+        # Basic existence check - works on all platforms
         try:
-            # Basic existence check
             os.kill(pid, 0)
         except OSError:
             self._clear_webview_pid()
@@ -149,29 +149,44 @@ class TrayAppWithSubprocess:
         # Advanced check: Verify the process is actually ours
         # This prevents PID reuse conflicts (stale PID file pointing to a new unrelated process)
         try:
-            # Use ps to get command line for the pid
-            # Output format: "command_args"
-            cmd = ["ps", "-p", str(pid), "-o", "command="]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                output = result.stdout.strip()
-                # Check keywords that should be in our webview process
-                # Frozen: "OpenCode Token Meter" or similar
-                # Dev: "python" and "main.py"
-                if "main.py" in output or "OpenCode Token Meter" in output or "webview" in output:
+            import platform
+            if platform.system() == "Windows":
+                # Windows: use tasklist to check process existence
+                # Output format: "imagename PID sessionname session# mem usage"
+                result = subprocess.run(
+                    ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0 and str(pid) in result.stdout:
                     return True
                 else:
-                    log_info("Tray", f"PID {pid} exists but seems to be a different process: {output[:50]}...")
+                    log_info("Tray", f"PID {pid} not found in tasklist")
                     self._clear_webview_pid()
                     return False
             else:
-                # ps failed? Assume running if kill changed nothing, but maybe not?
-                # If ps failed, satisfy with kill check
-                return True
+                # Unix/macOS: use ps to get command line for the pid
+                # Output format: "command_args"
+                cmd = ["ps", "-p", str(pid), "-o", "command="]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode == 0:
+                    output = result.stdout.strip()
+                    # Check keywords that should be in our webview process
+                    # Frozen: "OpenCode Token Meter" or similar
+                    # Dev: "python" and "main.py"
+                    if "main.py" in output or "OpenCode Token Meter" in output or "webview" in output:
+                        return True
+                    else:
+                        log_info("Tray", f"PID {pid} exists but seems to be a different process: {output[:50]}...")
+                        self._clear_webview_pid()
+                        return False
+                else:
+                    # ps failed? Assume running if kill changed nothing, but maybe not?
+                    # If ps failed, satisfy with kill check
+                    return True
         except Exception as e:
             log_warn("Tray", f"Failed to verify process args: {e}")
-            return True # Fallback to trusting os.kill logic if ps fails
-            
+            return True  # Fallback to trusting os.kill logic if ps fails
+        
         return True
 
     def _write_nav_file(self, page):

@@ -59,7 +59,12 @@ def save_pid():
 def get_web_dir():
     """Get the web directory path"""
     if getattr(sys, 'frozen', False):
-        # In cached bundle
+        meipass = getattr(sys, '_MEIPASS', None)
+        if meipass:
+            # PyInstaller onefile build (Windows/Linux): all assets extracted to sys._MEIPASS
+            # Spec bundles web assets at: (web_dir, 'webview_ui/web')
+            return os.path.join(meipass, "webview_ui", "web")
+        # macOS .app bundle (onedir): Resources layout
         # sys.executable is .../Contents/MacOS/OpenCode Token Meter
         # Web files are in .../Contents/Resources/webview_ui/web
         return os.path.join(os.path.dirname(sys.executable), "..", "Resources", "webview_ui", "web")
