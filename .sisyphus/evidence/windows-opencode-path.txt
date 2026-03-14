@@ -1,0 +1,25 @@
+## Task 0 — Windows OpenCode Data Path Validation
+Date: 2026-03-14
+
+### Result
+Path: C:\Users\<username>\.local\share\opencode\opencode.db
+Exists: TRUE ✅
+
+### Paths Checked
+- $env:USERPROFILE\.local\share\opencode\opencode.db  → TRUE ✅
+- $env:APPDATA\opencode\opencode.db                    → (not checked, above found)
+- $env:LOCALAPPDATA\opencode\opencode.db               → (not checked, above found)
+
+### Decision
+config.py needs change: NO
+
+OpenCode on Windows uses the same path as macOS/Linux: ~/.local/share/opencode/
+The existing hardcoded path in config.py is CORRECT on Windows.
+No code change required for Task 2 — only comment update to clarify validation.
+
+### Current config.py Code (CORRECT AS-IS)
+MSG_ROOT = os.path.join(os.path.expanduser('~'), '.local', 'share', 'opencode', 'storage', 'message')
+OPENCODE_DB_PATH = os.path.join(os.path.expanduser('~'), '.local', 'share', 'opencode', 'opencode.db')
+
+### Validation Source
+User confirmed: "opencode.db就在C:\Users\<你的用户名>\.local\share\opencode\opencode.db"
