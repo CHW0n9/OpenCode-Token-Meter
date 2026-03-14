@@ -74,9 +74,6 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
     CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
     
-    -- Deduplication index for faster model-specific cost calculations
-    CREATE INDEX IF NOT EXISTS idx_dedup_v2 ON messages(ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id, is_failed);
-    
     CREATE TABLE IF NOT EXISTS sync_state (
       key TEXT PRIMARY KEY,
       val TEXT
@@ -88,6 +85,12 @@ def init_db():
     # Run migrations/maintenance
     migrate_fix_roles()
     mark_failed_requests()
+    
+    # Create deduplication index after is_failed column exists
+    c.execute("""
+    CREATE INDEX IF NOT EXISTS idx_dedup_v2
+    ON messages(ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id, is_failed)
+    """)
     conn.commit()
     conn.close()
 
