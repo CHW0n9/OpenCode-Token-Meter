@@ -78,8 +78,11 @@ def create_window(api, debug=False, initial_page='dashboard'):
     
     # Use file:// protocol for local files
     if os.path.exists(index_path):
-        # Pass initial page as query parameter
-        url = f"file://{os.path.abspath(index_path)}?page={initial_page}"
+        # Use pathlib for cross-platform URL conversion (handles Windows backslashes/spaces)
+        from pathlib import Path
+        abs_path = os.path.abspath(index_path)
+        file_url = Path(abs_path).as_uri()
+        url = f"{file_url}?page={initial_page}"
         print(f"[INFO] Loading URL: {url}")
     else:
         print(f"[ERROR] index.html not found at {index_path}")
