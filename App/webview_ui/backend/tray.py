@@ -87,7 +87,8 @@ class TrayManager:
         return Image.new("RGB", (64, 64), color="blue")
 
     def _item_text(self, key):
-        return lambda _item: self._lines.get(key, "")
+        return lambda _item: self._lines.get(key, "") or " "
+
 
     def get_menu(self):
         return Menu(
@@ -96,7 +97,7 @@ class TrayManager:
             MenuItem(self._item_text("today_row2"), self._noop, enabled=True),
             MenuItem(self._item_text("today_row3"), self._noop, enabled=True),
             Menu.SEPARATOR,
-            MenuItem(self._item_text("month_header"), self._noop, enabled=True, default=True),
+            MenuItem(self._item_text("month_header"), self._noop, enabled=True),
             MenuItem(self._item_text("month_row1"), self._noop, enabled=True),
             MenuItem(self._item_text("month_row2"), self._noop, enabled=True),
             MenuItem(self._item_text("month_row3"), self._noop, enabled=True),
