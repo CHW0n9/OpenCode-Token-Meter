@@ -165,7 +165,8 @@ class TrayManager:
 
     def _build_row(self, left_label, left_value, right_label, right_value, columns=None):
         if platform.system() == "Windows":
-            return f"{left_label} {left_value}\t{right_label} {right_value}"
+            pad = " " * 6
+            return f"{left_label} {left_value}\t\t{right_label} {right_value}{pad}"
         if columns is None:
             columns = self._default_columns()
         left_value_col, right_label_col, right_value_col = columns

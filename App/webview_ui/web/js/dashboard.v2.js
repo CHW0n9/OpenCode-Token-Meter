@@ -104,10 +104,31 @@ class Dashboard {
     async loadStats(scope = null) {
         if (scope) this.currentScope = scope;
 
-        const result = await window.api.getStats(this.currentScope);
+        const [result, modelResult] = await Promise.all([
+            window.api.getStats(this.currentScope),
+            window.api.getStatsByModel(this.currentScope)
+        ]);
 
         if (result.success) {
             this.stats = result.data;
+
+            // Build providers array from model breakdown
+            this.stats.providers = [];
+            if (modelResult.success && modelResult.data) {
+                for (const [providerName, models] of Object.entries(modelResult.data)) {
+                    for (const [modelName, stats] of Object.entries(models)) {
+                        this.stats.providers.push({
+                            name: providerName,
+                            model: modelName,
+                            input: stats.input || 0,
+                            output: (stats.output || 0) + (stats.reasoning || 0),
+                            requests: stats.requests || 0,
+                            cost: stats.cost || 0
+                        });
+                    }
+                }
+            }
+
             this.render();
             this.updateLastRefresh();
             await this.loadThresholds();

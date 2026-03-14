@@ -76,14 +76,11 @@ def create_window(api, debug=False, initial_page='dashboard'):
     web_dir = get_web_dir()
     index_path = os.path.join(web_dir, "index.html")
     
-    # Use file:// protocol for local files
     if os.path.exists(index_path):
-        # Use pathlib for cross-platform URL conversion (handles Windows backslashes/spaces)
-        from pathlib import Path
-        abs_path = os.path.abspath(index_path)
-        file_url = Path(abs_path).as_uri()
-        url = f"{file_url}?page={initial_page}"
-        print(f"[INFO] Loading URL: {url}")
+        # Pass local file path directly; pywebview's http_server will serve it
+        # Append ?page= query parameter for JS-side routing
+        url = index_path + f"?page={initial_page}"
+        print(f"[INFO] Loading path: {url}")
     else:
         print(f"[ERROR] index.html not found at {index_path}")
         url = "about:blank"
@@ -194,7 +191,7 @@ def main(debug=False, no_tray=False, initial_page='dashboard'):
         print("[INFO] Starting webview...")
         webview.start(
             debug=debug,
-            http_server=False,
+            http_server=True,
             private_mode=False
         )
         

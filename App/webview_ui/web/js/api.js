@@ -4,7 +4,9 @@ class ApiClient {
     }
 
     _isPywebviewAvailable() {
-        return typeof window.pywebview !== 'undefined' && window.pywebview.api;
+        return typeof window.pywebview !== 'undefined' 
+            && window.pywebview.api 
+            && Object.keys(window.pywebview.api).length > 0;
     }
 
     async getStats(scope = 'today') {

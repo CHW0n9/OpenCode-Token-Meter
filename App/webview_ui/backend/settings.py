@@ -124,6 +124,13 @@ DEFAULT_SETTINGS = {
                 "request": 0.04,
                 "provider": "github-copilot"
             },
+            "github-copilot/claude-sonnet-4.6": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.04,
+                "provider": "github-copilot"
+            },
             "github-copilot/gemini-3-flash-preview": {
                 "input": 0.0,
                 "output": 0.0,
@@ -240,6 +247,13 @@ DEFAULT_SETTINGS = {
                 "provider": "opencode"
             },
             "opencode/minimax-m2.1-free": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.0,
+                "provider": "opencode"
+            },
+            "opencode/minimax-m2.5-free": {
                 "input": 0.0,
                 "output": 0.0,
                 "caching": 0.0,
