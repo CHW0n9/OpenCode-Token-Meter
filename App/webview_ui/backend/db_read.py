@@ -92,24 +92,31 @@ def _scope_range(scope, conn, timezone="local"):
     return now, now
 
 
-def _dedup_subquery(where_clause=""):
+_has_is_failed_cache = None  # None = not yet checked
+
+
+def _check_has_is_failed(conn):
+    """Check if is_failed column exists in messages table (cached)."""
+    global _has_is_failed_cache
+    if _has_is_failed_cache is None:
+        try:
+            cols = [row[1] for row in conn.execute("PRAGMA table_info(messages)")]
+            _has_is_failed_cache = 'is_failed' in cols
+        except Exception:
+            _has_is_failed_cache = False
+    return _has_is_failed_cache
+
+
+def _dedup_subquery(where_clause="", conn=None):
     base_where = f"WHERE {where_clause}" if where_clause else ""
-    # Filter out failed requests if scope allows (though 'is_failed' column might not exist in old DBs before migration)
-    # But since we migrated, we can assume it exists or handle it safely?
-    # Actually, simpler to just append the check.
-    # Note: We need to handle the case where we might be querying an old DB backup or something, 
-    # but for the main app DB, it should have the column.
-    
-    # We append the filter to base_where.
-    # If base_where is empty, we start with WHERE.
-    # If not, we add AND.
-    
-    filter_failed = "(is_failed = 0 OR is_failed IS NULL)"
-    
-    if base_where:
-        final_where = f"{base_where} AND {filter_failed}"
+    if conn is not None and _check_has_is_failed(conn):
+        filter_failed = "(is_failed = 0 OR is_failed IS NULL)"
+        if base_where:
+            final_where = f"{base_where} AND {filter_failed}"
+        else:
+            final_where = f"WHERE {filter_failed}"
     else:
-        final_where = f"WHERE {filter_failed}"
+        final_where = base_where
 
     return f"""
     (SELECT ts, role, input, output, reasoning, cache_read, cache_write, provider_id, model_id
@@ -118,16 +125,17 @@ def _dedup_subquery(where_clause=""):
     """
 
 
-def _dedup_export_subquery(where_clause=""):
+def _dedup_export_subquery(where_clause="", conn=None):
     base_where = f"WHERE {where_clause}" if where_clause else ""
-    
-    filter_failed = "(is_failed = 0 OR is_failed IS NULL)"
-    
-    if base_where:
-        final_where = f"{base_where} AND {filter_failed}"
+    if conn is not None and _check_has_is_failed(conn):
+        filter_failed = "(is_failed = 0 OR is_failed IS NULL)"
+        if base_where:
+            final_where = f"{base_where} AND {filter_failed}"
+        else:
+            final_where = f"WHERE {filter_failed}"
     else:
-        final_where = f"WHERE {filter_failed}"
-        
+        final_where = base_where
+
     return f"""
     (SELECT
         MIN(session_id) AS session_id,
@@ -158,7 +166,7 @@ def aggregate_range(start_ts, end_ts):
     c = conn.cursor()
     where_clause = "ts >= ? AND ts < ?"
     params = [ start_ts, end_ts ]
-    subquery = _dedup_subquery(where_clause)
+    subquery = _dedup_subquery(where_clause, conn=conn)
     token_filter = "(input > 0 OR output > 0 OR reasoning > 0 OR cache_read > 0 OR cache_write > 0)"
     c.execute(f"""
     SELECT
@@ -212,7 +220,7 @@ def by_model_range(start_ts, end_ts):
     c = conn.cursor()
     where_clause = "ts >= ? AND ts < ?"
     params = [ start_ts, end_ts ]
-    subquery = _dedup_subquery(where_clause)
+    subquery = _dedup_subquery(where_clause, conn=conn)
     token_filter = "(input > 0 OR output > 0 OR reasoning > 0 OR cache_read > 0 OR cache_write > 0)"
     c.execute(f"""
     SELECT provider_id, model_id,
@@ -250,7 +258,7 @@ def by_provider_range(start_ts, end_ts):
     c = conn.cursor()
     where_clause = "ts >= ? AND ts < ?"
     params = [ start_ts, end_ts ]
-    subquery = _dedup_subquery(where_clause)
+    subquery = _dedup_subquery(where_clause, conn=conn)
     token_filter = "(input > 0 OR output > 0 OR reasoning > 0 OR cache_read > 0 OR cache_write > 0)"
     c.execute(f"""
     SELECT provider_id,
@@ -288,7 +296,7 @@ def get_raw_trend_data(start_ts, end_ts):
     c = conn.cursor()
     where_clause = "ts >= ? AND ts < ?"
     params = [ start_ts, end_ts ]
-    subquery = _dedup_subquery(where_clause)
+    subquery = _dedup_subquery(where_clause, conn=conn)
     token_filter = "(input > 0 OR output > 0 OR reasoning > 0 OR cache_read > 0 OR cache_write > 0)"
     
     # We fetch raw rows to bucket them in Python correctly handling timezones
@@ -342,7 +350,7 @@ def export_csv_range(out_path, start_ts, end_ts):
     c = conn.cursor()
     where_clause = "ts >= ? AND ts < ?"
     params = [ start_ts, end_ts ]
-    subquery = _dedup_export_subquery(where_clause)
+    subquery = _dedup_export_subquery(where_clause, conn=conn)
     c.execute(f"""
     SELECT session_id, msg_id, ts, input, output, reasoning,
            cache_read, cache_write, model, provider_id, model_id, role

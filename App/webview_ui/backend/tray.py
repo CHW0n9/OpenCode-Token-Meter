@@ -43,46 +43,41 @@ class TrayManager:
             "month_row3": "",
         }
 
+    def _noop(self, *_args, **_kwargs):
+        return None
+
     def get_icon_path(self):
         import sys
         system = platform.system()
-        
+
         if getattr(sys, 'frozen', False):
-            # Frozen mode
-            if system == "Darwin":
+            meipass = getattr(sys, '_MEIPASS', None)
+            if meipass:
+                # Onefile build (Windows/Linux): extracted to _MEIPASS
+                resources_dir = os.path.join(meipass, "resources")
+            elif system == "Darwin":
                 # macOS .app bundle
                 resources_dir = os.path.join(os.path.dirname(sys.executable), "..", "Resources", "resources")
             else:
-                # Windows/Linux PyInstaller one-dir
-                # resources are usually in _internal/resources or just resources next to exe?
-                # Based on file lists: dist/OpenCode Token Meter/_internal/resources/AppIcon.ico
-                # sys.executable is inside dist/OpenCode Token Meter/
-                # _internal is adjacent to exe?
-                # Actually, standard PyInstaller behaviour:
-                # sys._MEIPASS for onefile, or sys.executable dir for onedir
-                # Let's try to locate 'resources' dir relative to internal directory
-                base_path = os.path.dirname(os.path.abspath(__file__)) # This should be in _internal/webview_ui/backend
-                # Go up to _internal root?
-                # Safer to look relative to sys.executable for onedir
+                # Onedir fallback (unlikely but safe)
                 exe_dir = os.path.dirname(sys.executable)
                 resources_dir = os.path.join(exe_dir, "_internal", "resources")
                 if not os.path.exists(resources_dir):
-                     resources_dir = os.path.join(exe_dir, "resources")
+                    resources_dir = os.path.join(exe_dir, "resources")
         else:
             # Dev mode
             base_dir = os.path.dirname(os.path.dirname(__file__))
             resources_dir = os.path.join(base_dir, "web", "assets")
 
         if system == "Darwin":
-             # Use template icon for macOS
             path = os.path.join(resources_dir, "icon_template@2x.png")
             if not os.path.exists(path):
                 path = os.path.join(resources_dir, "icon_template.png")
             return path
-            
+
         if system == "Windows":
             return os.path.join(resources_dir, "AppIcon.ico")
-            
+
         return os.path.join(resources_dir, "AppIcon.png")
 
     def create_icon(self):
@@ -92,19 +87,20 @@ class TrayManager:
         return Image.new("RGB", (64, 64), color="blue")
 
     def _item_text(self, key):
-        return lambda _item: self._lines.get(key, "")
+        return lambda _item: self._lines.get(key, "") or " "
+
 
     def get_menu(self):
         return Menu(
-            MenuItem(self._item_text("today_header"), None, enabled=False),
-            MenuItem(self._item_text("today_row1"), None, enabled=False),
-            MenuItem(self._item_text("today_row2"), None, enabled=False),
-            MenuItem(self._item_text("today_row3"), None, enabled=False),
+            MenuItem(self._item_text("today_header"), self._noop, enabled=True, default=True),
+            MenuItem(self._item_text("today_row1"), self._noop, enabled=True),
+            MenuItem(self._item_text("today_row2"), self._noop, enabled=True),
+            MenuItem(self._item_text("today_row3"), self._noop, enabled=True),
             Menu.SEPARATOR,
-            MenuItem(self._item_text("month_header"), None, enabled=False),
-            MenuItem(self._item_text("month_row1"), None, enabled=False),
-            MenuItem(self._item_text("month_row2"), None, enabled=False),
-            MenuItem(self._item_text("month_row3"), None, enabled=False),
+            MenuItem(self._item_text("month_header"), self._noop, enabled=True),
+            MenuItem(self._item_text("month_row1"), self._noop, enabled=True),
+            MenuItem(self._item_text("month_row2"), self._noop, enabled=True),
+            MenuItem(self._item_text("month_row3"), self._noop, enabled=True),
             Menu.SEPARATOR,
             MenuItem("Open Main Window", self._on_show_window),
             MenuItem("Quit", self._on_quit)
@@ -142,36 +138,43 @@ class TrayManager:
         except (TypeError, ValueError):
             return "--"
 
-    def _tab_units(self, text):
-        units = 0
-        for ch in text:
-            if ch == "\t":
-                units += self._tab_size - (units % self._tab_size)
-            else:
-                units += 1
-        return units
+    def _pad_to_col(self, text, col):
+        if len(text) < col:
+            return text + (" " * (col - len(text)))
+        return text + " "
 
-    def _tabs_to_target(self, current_units, target_units):
-        if current_units < target_units:
-            tabs = 0
-            units = current_units
-            while units < target_units:
-                units += self._tab_size - (units % self._tab_size)
-                tabs += 1
-            return max(1, tabs)
-        return 1
+    def _default_columns(self):
+        base_left_value_col = self._tab_size * self._left_value_stop
+        base_right_label_col = self._tab_size * self._right_label_stop
+        base_right_value_col = self._tab_size * self._right_value_stop
+        return base_left_value_col, base_right_label_col, base_right_value_col
 
-    def _append_tabs(self, text, target_units):
-        tabs = self._tabs_to_target(self._tab_units(text), target_units)
-        return text + ("\t" * tabs)
+    def _compute_columns(self, left_labels, left_values, right_labels, right_values):
+        base_left_value_col, base_right_label_col, base_right_value_col = self._default_columns()
+        max_left_label_len = max((len(str(v)) for v in left_labels), default=0)
+        max_left_value_len = max((len(str(v)) for v in left_values), default=0)
+        max_right_label_len = max((len(str(v)) for v in right_labels), default=0)
+        max_right_value_len = max((len(str(v)) for v in right_values), default=0)
 
-    def _build_row(self, left_label, left_value, right_label, right_value):
-        text = str(left_label)
-        text = self._append_tabs(text, self._tab_size * self._left_value_stop)
+        left_value_col = max(base_left_value_col, max_left_label_len + 1)
+        right_label_col = max(base_right_label_col, left_value_col + max_left_value_len + 2)
+        right_value_col = max(base_right_value_col, right_label_col + max_right_label_len + 2)
+
+        right_value_col = max(right_value_col, right_label_col + max_right_label_len + 1 + max_right_value_len)
+        return left_value_col, right_label_col, right_value_col
+
+    def _build_row(self, left_label, left_value, right_label, right_value, columns=None):
+        if platform.system() == "Windows":
+            pad = " " * 6
+            return f"{left_label} {left_value}\t\t{right_label} {right_value}{pad}"
+        if columns is None:
+            columns = self._default_columns()
+        left_value_col, right_label_col, right_value_col = columns
+        text = self._pad_to_col(str(left_label), left_value_col)
         text += str(left_value)
-        text = self._append_tabs(text, self._tab_size * self._right_label_stop)
+        text = self._pad_to_col(text, right_label_col)
         text += str(right_label)
-        text = self._append_tabs(text, self._tab_size * self._right_value_stop)
+        text = self._pad_to_col(text, right_value_col)
         text += str(right_value)
         return text
 
@@ -238,43 +241,39 @@ class TrayManager:
         if thresholds_enabled:
             self._check_thresholds(stats)
 
-        if display:
-            fallback_row1 = self._build_row("In:", "--", "Req:", "--")
-            fallback_row2 = self._build_row("Out:", "--", "Cost:", "--")
-            self._lines["today_row1"] = display.get("today_row1", fallback_row1)
-            self._lines["today_row2"] = display.get("today_row2", fallback_row2)
-            self._lines["month_row1"] = display.get("month_row1", fallback_row1)
-            self._lines["month_row2"] = display.get("month_row2", fallback_row2)
-        else:
-            today = stats.get("today", {}) if isinstance(stats, dict) else {}
-            month = stats.get("month", {}) if isinstance(stats, dict) else {}
+        today = stats.get("today", {}) if isinstance(stats, dict) else {}
+        month = stats.get("month", {}) if isinstance(stats, dict) else {}
 
-            today_in = self._format_tokens(today.get("input", 0))
-            today_req = self._format_tokens(today.get("requests", 0))
-            today_out = self._format_tokens((today.get("output", 0) or 0) + (today.get("reasoning", 0) or 0))
-            today_cost = self._format_cost(today.get("cost", 0.0))
+        today_in = self._format_tokens(today.get("input", 0))
+        today_req = self._format_tokens(today.get("requests", 0))
+        today_out = self._format_tokens((today.get("output", 0) or 0) + (today.get("reasoning", 0) or 0))
+        today_cost = self._format_cost(today.get("cost", 0.0))
 
-            month_in = self._format_tokens(month.get("input", 0))
-            month_req = self._format_tokens(month.get("requests", 0))
-            month_out = self._format_tokens((month.get("output", 0) or 0) + (month.get("reasoning", 0) or 0))
-            month_cost = self._format_cost(month.get("cost", 0.0))
+        month_in = self._format_tokens(month.get("input", 0))
+        month_req = self._format_tokens(month.get("requests", 0))
+        month_out = self._format_tokens((month.get("output", 0) or 0) + (month.get("reasoning", 0) or 0))
+        month_cost = self._format_cost(month.get("cost", 0.0))
 
-            self._lines["today_row1"] = self._build_row("In:", today_in, "Req:", today_req)
-            self._lines["today_row2"] = self._build_row("Out:", today_out, "Cost:", f"${today_cost}")
-            self._lines["month_row1"] = self._build_row("In:", month_in, "Req:", month_req)
-            self._lines["month_row2"] = self._build_row("Out:", month_out, "Cost:", f"${month_cost}")
+        today_token_pct = f"{today.get('token_pct', 0)}%"
+        today_cost_pct = f"{today.get('cost_pct', 0)}%"
+        month_token_pct = f"{month.get('token_pct', 0)}%"
+        month_cost_pct = f"{month.get('cost_pct', 0)}%"
+
+        left_labels = ["In:", "Out:", "Token:"]
+        right_labels = ["Req:", "Cost:", "Cost:"]
+        left_values = [today_in, today_out, today_token_pct, month_in, month_out, month_token_pct]
+        right_values = [today_req, f"${today_cost}", today_cost_pct, month_req, f"${month_cost}", month_cost_pct]
+
+        columns = self._compute_columns(left_labels, left_values, right_labels, right_values)
+
+        self._lines["today_row1"] = self._build_row("In:", today_in, "Req:", today_req, columns)
+        self._lines["today_row2"] = self._build_row("Out:", today_out, "Cost:", f"${today_cost}", columns)
+        self._lines["month_row1"] = self._build_row("In:", month_in, "Req:", month_req, columns)
+        self._lines["month_row2"] = self._build_row("Out:", month_out, "Cost:", f"${month_cost}", columns)
 
         if thresholds_enabled:
-            today_row3 = display.get("today_row3") if display else None
-            month_row3 = display.get("month_row3") if display else None
-            if not today_row3:
-                today = stats.get("today", {}) if isinstance(stats, dict) else {}
-                today_row3 = self._build_row("Token:", f"{today.get('token_pct', 0)}%", "Cost:", f"{today.get('cost_pct', 0)}%")
-            if not month_row3:
-                month = stats.get("month", {}) if isinstance(stats, dict) else {}
-                month_row3 = self._build_row("Token:", f"{month.get('token_pct', 0)}%", "Cost:", f"{month.get('cost_pct', 0)}%")
-            self._lines["today_row3"] = today_row3
-            self._lines["month_row3"] = month_row3
+            self._lines["today_row3"] = self._build_row("Token:", today_token_pct, "Cost:", today_cost_pct, columns)
+            self._lines["month_row3"] = self._build_row("Token:", month_token_pct, "Cost:", month_cost_pct, columns)
         else:
             self._lines["today_row3"] = ""
             self._lines["month_row3"] = ""

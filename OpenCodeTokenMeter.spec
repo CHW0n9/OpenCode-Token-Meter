@@ -164,7 +164,7 @@ a = Analysis(
         'pydoc',
         'pydoc_data',
         'test',
-        'distutils',
+        #'distutils',
         'lib2to3',
         'pdb',
         'doctest',

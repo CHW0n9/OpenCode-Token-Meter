@@ -23,7 +23,7 @@ DB_PATH = os.path.join(BASE_DIR, "index.db")
 LOCKFILE_PATH = os.path.join(BASE_DIR, "agent.lock")
 # LOG_PATH = os.path.join(BASE_DIR, "agent.log")
 
-# Message storage root - OpenCode uses .local/share on all platforms including Windows
+# Message storage root - OpenCode uses .local/share on all platforms (validated on Windows)
 MSG_ROOT = os.path.join(os.path.expanduser("~"), ".local", "share", "opencode", "storage", "message")
 
 # OpenCode primary database path

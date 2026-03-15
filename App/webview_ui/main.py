@@ -59,7 +59,12 @@ def save_pid():
 def get_web_dir():
     """Get the web directory path"""
     if getattr(sys, 'frozen', False):
-        # In cached bundle
+        meipass = getattr(sys, '_MEIPASS', None)
+        if meipass:
+            # PyInstaller onefile build (Windows/Linux): all assets extracted to sys._MEIPASS
+            # Spec bundles web assets at: (web_dir, 'webview_ui/web')
+            return os.path.join(meipass, "webview_ui", "web")
+        # macOS .app bundle (onedir): Resources layout
         # sys.executable is .../Contents/MacOS/OpenCode Token Meter
         # Web files are in .../Contents/Resources/webview_ui/web
         return os.path.join(os.path.dirname(sys.executable), "..", "Resources", "webview_ui", "web")
@@ -71,11 +76,11 @@ def create_window(api, debug=False, initial_page='dashboard'):
     web_dir = get_web_dir()
     index_path = os.path.join(web_dir, "index.html")
     
-    # Use file:// protocol for local files
     if os.path.exists(index_path):
-        # Pass initial page as query parameter
-        url = f"file://{os.path.abspath(index_path)}?page={initial_page}"
-        print(f"[INFO] Loading URL: {url}")
+        # Pass local file path directly; pywebview's http_server will serve it
+        # Append ?page= query parameter for JS-side routing
+        url = index_path + f"?page={initial_page}"
+        print(f"[INFO] Loading path: {url}")
     else:
         print(f"[ERROR] index.html not found at {index_path}")
         url = "about:blank"
@@ -186,7 +191,7 @@ def main(debug=False, no_tray=False, initial_page='dashboard'):
         print("[INFO] Starting webview...")
         webview.start(
             debug=debug,
-            http_server=False,
+            http_server=True,
             private_mode=False
         )
         
