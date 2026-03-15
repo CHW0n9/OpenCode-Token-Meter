@@ -88,7 +88,7 @@ async def full_history_scan():
     try:
         # Wait longer before starting full scan to avoid impacting initial UI
         await asyncio.sleep(30)
-        print("Starting full history scan in background...")
+        log_info("Agent", "Starting full history scan in background...")
         
         # Use a FRESH scanner instance to avoid concurrency/locking issues with the main loop
         from agent.scanner import Scanner

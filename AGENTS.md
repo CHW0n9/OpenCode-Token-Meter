@@ -69,7 +69,47 @@ This repository uses a **unified spec file** (`OpenCodeTokenMeter.spec`) for all
 
 ---
 
-## 5) Contributor Guidelines
+## 5) Logging Standards
+
+All logging in the agent codebase MUST use the logger functions from `agent.logger`:
+
+```python
+from agent.logger import log_info, log_warn, log_error, log_debug
+
+# Usage
+log_info("Tag", "Message content")
+log_warn("Tag", "Warning message")
+log_error("Tag", "Error message")
+log_debug("Tag", "Debug message")  # Only when OPENCODE_DEBUG env var is set
+```
+
+### Logger Output Format
+```
+[  LEVEL  ] 2026-03-15 10:30:00 -    TAG     Message content
+```
+
+- **LEVEL**: Fixed width 8 chars with brackets (INFO, WARN, ERROR, DEBUG)
+- **TAG**: Fixed width 10 chars without brackets (e.g., "Agent", "Scanner", "Tray")
+- **Timestamp**: ISO format (YYYY-MM-DD HH:MM:SS)
+
+### Common Tags
+- `Agent` - Main agent operations
+- `Scanner` - File scanning operations
+- `Tray` - System tray operations
+- `IPC` - Inter-process communication
+- `DB` - Database operations
+- `Stats` - Statistics worker
+
+### Rules
+- NEVER use `print()` for logging in production code
+- Use descriptive tags to identify the component
+- Keep messages concise but informative
+- Use `log_error()` for errors that need to be written to `error.log`
+- Use `log_debug()` only for development debugging (requires `OPENCODE_DEBUG` env var)
+
+---
+
+## 6) Contributor Guidelines
 
 1. **SQL Safety**: Always use parameterized queries (`?`). Never use f-strings for SQL inputs.
 2. **Deduplication**: Message counting must use the deduplication logic in `App/agent/agent/db.py`.

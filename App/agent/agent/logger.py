@@ -13,11 +13,12 @@ def _get_timestamp():
 
 def _format_log(tag: str, level: str, message: str):
     timestamp = _get_timestamp()
-    # Fixed width tag for alignment (10 chars)
-    tag_part = f"[{tag:^10}]"
+    # Fixed width tag for alignment (10 chars, no brackets)
+    tag_part = f"{tag:^10}"
     if level:
-        return f"{tag_part} {timestamp} - [{level}] {message}"
-    return f"{tag_part} {timestamp} - {message}"
+        level_part = f"[{level:^8}]"
+        return f"{level_part} {timestamp} - {tag_part} {message}"
+    return f"{timestamp} - {tag_part} {message}"
 
 def log_info(tag: str, message: str):
     line = _format_log(tag, "INFO", message)

@@ -110,7 +110,7 @@ DEFAULT_SETTINGS = {
                 "request": 0.12,
                 "provider": "github-copilot"
             },
-            "github-copilot/claude-opus-4-6": {
+            "github-copilot/claude-opus-4.6": {
                 "input": 0.0,
                 "output": 0.0,
                 "caching": 0.0,
@@ -166,6 +166,13 @@ DEFAULT_SETTINGS = {
                 "request": 0.04,
                 "provider": "github-copilot"
             },
+            "github-copilot/gpt-5.3-codex": {
+                "input": 0.0,
+                "output": 0.0,
+                "caching": 0.0,
+                "request": 0.04,
+                "provider": "github-copilot"
+            },
             # Google - Sorted alphabetically
             "google/gemini-3-flash-preview": {
                 "input": 0.5,
@@ -175,6 +182,13 @@ DEFAULT_SETTINGS = {
                 "provider": "google"
             },
             "google/gemini-3-pro": {
+                "input": 2.5,
+                "output": 15.0,
+                "caching": 0.25,
+                "request": 0.0,
+                "provider": "google"
+            },
+            "google/gemini-3.1-pro-preview": {
                 "input": 2.5,
                 "output": 15.0,
                 "caching": 0.25,
