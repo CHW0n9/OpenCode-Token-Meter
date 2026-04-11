@@ -4,6 +4,7 @@ class SettingsManager {
         this.originalSettings = null;
         this.pricingCatalog = { default: {}, models: {} };
         this.isRendering = false; // // Flag to prevent save button trigger during render
+        this.expandedProviders = new Set();
     }
 
     hasUnsavedChanges() {
@@ -24,6 +25,7 @@ class SettingsManager {
                 this.settings = JSON.parse(JSON.stringify(result.data));
                 if (!this.settings.prices) this.settings.prices = { models: {} };
                 if (!this.settings.prices.models) this.settings.prices.models = {};
+                await this.updateVersionBadge();
                 this.originalSettings = JSON.parse(JSON.stringify(this.settings));
                 this.render();
             } else {
@@ -45,6 +47,31 @@ class SettingsManager {
             }
         } catch (error) {
             console.error('Error loading pricing catalog:', error);
+        }
+    }
+
+    async updateVersionBadge() {
+        const versionBadge = document.getElementById('app-version-badge');
+        if (!versionBadge) return;
+
+        let version = this.settings?.version || '--';
+        try {
+            const result = await window.api.getVersion();
+            if (result.success && result.data) {
+                version = result.data;
+            }
+        } catch (_error) {
+            // Keep settings fallback silently
+        }
+
+        versionBadge.textContent = `v${version}`;
+        versionBadge.classList.remove('hidden');
+    }
+
+    hideVersionBadge() {
+        const versionBadge = document.getElementById('app-version-badge');
+        if (versionBadge) {
+            versionBadge.classList.add('hidden');
         }
     }
 
@@ -264,7 +291,7 @@ class SettingsManager {
         if (allModels.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="px-4 py-8 text-center text-black-400">
+                    <td colspan="6" class="px-4 py-8 text-center text-black-400">
                         // No model pricing configured
                     </td>
                 </tr>
@@ -272,91 +299,110 @@ class SettingsManager {
             return;
         }
 
-        let lastProvider = null;
-
+        const providerGroups = new Map();
         allModels.forEach(item => {
-            const showProvider = item.provider !== lastProvider;
-            lastProvider = item.provider;
-
-            // Icons
-            const confirmIcon = `<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
-            const cancelIcon = `<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
-            const resetIcon = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>`;
-            const deleteIcon = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
-
-            const tr = document.createElement('tr');
-            tr.className = 'border-b border-black-700 hover:bg-black-800/50 group';
-
-            // Compare with original to see if modified
-            const originalPricing = this.originalSettings.prices?.models?.[item.id] || this.pricingCatalog.models?.[item.id];
-            const currentPricing = this.settings.prices.models[item.id] || item.pricing;
-
-            let isModified = false;
-            if (originalPricing) {
-                isModified = (
-                    (parseFloat(currentPricing.input) || 0) !== (parseFloat(originalPricing.input) || 0) ||
-                    (parseFloat(currentPricing.output) || 0) !== (parseFloat(originalPricing.output) || 0) ||
-                    (parseFloat(currentPricing.caching) || 0) !== (parseFloat(originalPricing.caching) || 0) ||
-                    (parseFloat(currentPricing.request) || 0) !== (parseFloat(originalPricing.request) || 0)
-                );
+            if (!providerGroups.has(item.provider)) {
+                providerGroups.set(item.provider, []);
             }
+            providerGroups.get(item.provider).push(item);
+        });
 
-            // Provider Cell (invisible if repeated)
-            const providerCell = showProvider
-                ? `<span class="font-bold text-white">${this.escapeHtml(item.provider)}</span>`
-                : `<span class="invisible">${this.escapeHtml(item.provider)}</span>`;
+        const providers = Array.from(providerGroups.keys()).sort((a, b) => a.localeCompare(b));
 
-            // Model Name Cell (with customized indicator)
-            let modelNameHtml = this.escapeHtml(item.name);
+        providers.forEach(provider => {
+            const models = providerGroups.get(provider) || [];
+            const isExpanded = this.expandedProviders.has(provider);
+            const providerKey = encodeURIComponent(provider);
 
-            // Show "Custom" badge if it's a user-defined model OR a customized default model
-            if (item.isUserOnly || (item.isCustomized && item.isDefault)) {
-                modelNameHtml = `<div class="flex items-center gap-2">
-                     <span>${this.escapeHtml(item.name)}</span>
-                     <span class="text-[10px] bg-black-700 text-black-300 px-1.5 py-0.5 rounded">Custom</span>
-                   </div>`;
-            }
+            const chevronIcon = `<svg class="w-4 h-4 text-black-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
 
-            // Inputs(Larger font: text - sm or text - base)
-            const inputClass = "bg-gray-800 border border-black-700 text-white text-base rounded px-2 py-1.5 w-24 text-right focus:border-white focus:outline-none transition-colors";
-
-            tr.innerHTML = `
-                <td class="px-4 py-3 align-middle text-black-300">${providerCell}</td>
-                <td class="px-4 py-3 align-middle font-medium text-white">${modelNameHtml}</td>
-                <td class="px-4 py-3 align-middle text-right">
-                    <input type="number" step="0.5" class="${inputClass}" 
-                        value="${item.pricing.input || 0}" data-model="${this.escapeHtml(item.id)}" data-field="input">
-                </td>
-                <td class="px-4 py-3 align-middle text-right">
-                    <input type="number" step="0.5" class="${inputClass}" 
-                        value="${item.pricing.output || 0}" data-model="${this.escapeHtml(item.id)}" data-field="output">
-                </td>
-                <td class="px-4 py-3 align-middle text-right">
-                    <input type="number" step="0.05" class="${inputClass}" 
-                        value="${item.pricing.caching || 0}" data-model="${this.escapeHtml(item.id)}" data-field="caching">
-                </td>
-                <td class="px-4 py-3 align-middle text-right">
-                    <input type="number" step="0.04" class="${inputClass}" 
-                        value="${item.pricing.request || 0}" data-model="${this.escapeHtml(item.id)}" data-field="request">
-                </td>
-                <td class="px-4 py-3 align-middle text-center">
-                    <div class="flex items-center justify-center gap-1">
-                        ${isModified ? `
-                            <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-save-btn" title="Save changes" data-model="${this.escapeHtml(item.id)}">${confirmIcon}</button>
-                            <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-discard-btn" title="Discard changes" data-model="${this.escapeHtml(item.id)}">${cancelIcon}</button>
-                        ` : ''}
-                        
-                        ${item.isDefault && item.isCustomized && !isModified ?
-                    `<button class="text-black-400 hover:text-white transition-colors reset-model-btn p-2 rounded hover:bg-black-700" title="Reset to default" data-model="${this.escapeHtml(item.id)}">${resetIcon}</button>`
-                    : ''}
-                        ${item.isUserOnly && !isModified ?
-                    `<button class="text-black-400 hover:text-red-400 transition-colors delete-model-btn p-2 rounded hover:bg-black-700" title="Delete" data-model="${this.escapeHtml(item.id)}">${deleteIcon}</button>`
-                    : ''}
+            const providerRow = document.createElement('tr');
+            providerRow.className = 'border-b border-black-700 hover:bg-black-800/50 cursor-pointer group transition-colors';
+            providerRow.setAttribute('data-provider-toggle', providerKey);
+            providerRow.innerHTML = `
+                <td colspan="6" class="px-4 py-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            ${chevronIcon}
+                            <span class="font-bold text-white group-hover:text-blue-400 transition-colors">${this.escapeHtml(provider)}</span>
+                        </div>
+                        <span class="text-xs text-black-400">${models.length} models</span>
                     </div>
                 </td>
             `;
+            tbody.appendChild(providerRow);
 
-            tbody.appendChild(tr);
+            if (!isExpanded) return;
+
+            models.forEach(item => {
+                const confirmIcon = `<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+                const cancelIcon = `<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+                const resetIcon = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>`;
+                const deleteIcon = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-black-700 hover:bg-black-800/50 group';
+
+                const originalPricing = this.originalSettings.prices?.models?.[item.id] || this.pricingCatalog.models?.[item.id];
+                const currentPricing = this.settings.prices.models[item.id] || item.pricing;
+
+                let isModified = false;
+                if (originalPricing) {
+                    isModified = (
+                        (parseFloat(currentPricing.input) || 0) !== (parseFloat(originalPricing.input) || 0) ||
+                        (parseFloat(currentPricing.output) || 0) !== (parseFloat(originalPricing.output) || 0) ||
+                        (parseFloat(currentPricing.caching) || 0) !== (parseFloat(originalPricing.caching) || 0) ||
+                        (parseFloat(currentPricing.request) || 0) !== (parseFloat(originalPricing.request) || 0)
+                    );
+                }
+
+                let modelNameHtml = this.escapeHtml(item.name);
+                if (item.isUserOnly || (item.isCustomized && item.isDefault)) {
+                    modelNameHtml = `<div class="flex items-center gap-2">
+                         <span>${this.escapeHtml(item.name)}</span>
+                         <span class="text-[10px] bg-black-700 text-black-300 px-1.5 py-0.5 rounded">Custom</span>
+                       </div>`;
+                }
+
+                const inputClass = "bg-gray-800 border border-black-700 text-white text-base rounded px-2 py-1.5 w-24 text-right focus:border-white focus:outline-none transition-colors";
+
+                tr.innerHTML = `
+                    <td class="px-[3.5rem] py-3 align-middle font-medium text-white">${modelNameHtml}</td>
+                    <td class="px-4 py-3 align-middle text-right">
+                        <input type="number" step="0.5" class="${inputClass}" 
+                            value="${item.pricing.input || 0}" data-model="${this.escapeHtml(item.id)}" data-field="input">
+                    </td>
+                    <td class="px-4 py-3 align-middle text-right">
+                        <input type="number" step="0.5" class="${inputClass}" 
+                            value="${item.pricing.output || 0}" data-model="${this.escapeHtml(item.id)}" data-field="output">
+                    </td>
+                    <td class="px-4 py-3 align-middle text-right">
+                        <input type="number" step="0.05" class="${inputClass}" 
+                            value="${item.pricing.caching || 0}" data-model="${this.escapeHtml(item.id)}" data-field="caching">
+                    </td>
+                    <td class="px-4 py-3 align-middle text-right">
+                        <input type="number" step="0.04" class="${inputClass}" 
+                            value="${item.pricing.request || 0}" data-model="${this.escapeHtml(item.id)}" data-field="request">
+                    </td>
+                    <td class="px-4 py-3 align-middle text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            ${isModified ? `
+                                <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-save-btn" title="Save changes" data-model="${this.escapeHtml(item.id)}">${confirmIcon}</button>
+                                <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-discard-btn" title="Discard changes" data-model="${this.escapeHtml(item.id)}">${cancelIcon}</button>
+                            ` : ''}
+                            
+                            ${item.isDefault && item.isCustomized && !isModified ?
+                        `<button class="text-black-400 hover:text-white transition-colors reset-model-btn p-2 rounded hover:bg-black-700" title="Reset to default" data-model="${this.escapeHtml(item.id)}">${resetIcon}</button>`
+                        : ''}
+                            ${item.isUserOnly && !isModified ?
+                        `<button class="text-black-400 hover:text-red-400 transition-colors delete-model-btn p-2 rounded hover:bg-black-700" title="Delete" data-model="${this.escapeHtml(item.id)}">${deleteIcon}</button>`
+                        : ''}
+                        </div>
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            });
         });
 
         // Re - bind listeners
@@ -364,6 +410,19 @@ class SettingsManager {
     }
 
     setupTableListeners(tbody) {
+        tbody.querySelectorAll('[data-provider-toggle]').forEach(row => {
+            row.addEventListener('click', (e) => {
+                const provider = decodeURIComponent(e.currentTarget.dataset.providerToggle || '');
+                if (!provider) return;
+                if (this.expandedProviders.has(provider)) {
+                    this.expandedProviders.delete(provider);
+                } else {
+                    this.expandedProviders.add(provider);
+                }
+                this.renderModelPricingTable();
+            });
+        });
+
         // Add event listeners to inputs
         tbody.querySelectorAll('input[data-model]').forEach(input => {
             input.addEventListener('change', (e) => {

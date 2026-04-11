@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.3] - 2026-04-11
+
+### Added
+
+- **OpenAI Pricing**: Added GPT-5.3+ and GPT-5.4 model prices to the default settings.
+- **Linux Tray**: Added a pure D-Bus tray implementation for Ubuntu/Linux.
+
+### Changed
+
+- **Release Assets**: Updated README download links and versioned filenames for 1.1.3.
+
+---
+
 ## [1.1.2] - 2026-03-16
 
 ### Added

@@ -5,7 +5,7 @@
   </a>
 </p>
 
-**OpenCode Token Meter** is a lightweight macOS/Windows menubar app built with Python and pywebview to monitor [OpenCode](https://opencode.ai) token usage, costs, and analytics.
+**OpenCode Token Meter** is a lightweight macOS/Windows/Linux tray app built with Python and pywebview to monitor [OpenCode](https://opencode.ai) token usage, costs, and analytics.
 
 ![Dashboard Screenshot](assets/Screenshot_dashboard.png)
 
@@ -22,7 +22,7 @@
 - **📥 Data Export** - Export usage data for custom date ranges to CSV or Clipboard.
 - **🔄 Modern Architecture** - Background agent and stats worker run as embedded threads within a single process.
 - **🔐 Privacy-Focused** - All data stored locally in a SQLite database with robust deduplication logic.
-- **💻 Cross-Platform** - Native experience for both macOS (Menubar) and Windows (System Tray).
+- **💻 Cross-Platform** - Native experience for macOS (Menubar), Windows (System Tray), and Linux (System Tray).
 
 ---
 
@@ -31,13 +31,17 @@
 ### Option 1: Pre-built Binaries (Recommended)
 
 #### Windows
-1. Download `OpenCodeTokenMeter-1.1.1.exe` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
+1. Download `OpenCodeTokenMeter.exe` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
 2. Run the executable to start the application. The app will appear in your system tray.
 
 #### macOS
-1. Download `OpenCodeTokenMeter-1.1.1.dmg` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
+1. Download `OpenCodeTokenMeter.dmg` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
 2. Drag "OpenCode Token Meter.app" to your Applications folder.
 3. **Security Note**: Since the app is unsigned, you may need to go to **System Settings → Privacy & Security** and click **"Open Anyway"** on first launch.
+
+#### Linux
+1. Download `OpenCodeTokenMeter.deb` from [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases).
+2. Install the `.deb` package. **Note**: On GNOME, the AppIndicator extension must be enabled for the tray icon to appear.
 
 ---
 
@@ -45,7 +49,7 @@
 
 #### Dependencies
 - Python 3.9+
-- Recommended: Conda environment `opencode`.
+- Recommended: venv.
 
 ```bash
 # Windows
@@ -53,6 +57,9 @@ pip install pyinstaller pywebview pystray pillow pyperclip win10toast
 
 # macOS
 pip install pyinstaller pywebview rumps pillow pyperclip pyobjc-framework-Cocoa
+
+# Linux
+pip install pyinstaller pywebview pillow pyperclip
 ```
 
 #### Build Commands
@@ -69,6 +76,12 @@ Output: `dist\OpenCodeTokenMeter.exe`
 ./build.sh
 ```
 Output: `dist/OpenCode Token Meter.app` and `.dmg`
+
+**Linux:**
+```bash
+./build_linux.sh
+```
+Output: `dist/OpenCode Token Meter` and `dist/opencode-token-meter_<version>_<arch>.deb`
 
 ---
 
@@ -107,6 +120,7 @@ opencode-token-meter/
 - **Database Location**:
   - macOS: `~/Library/Application Support/OpenCode Token Meter/index.db`
   - Windows: `%APPDATA%\OpenCode Token Meter\index.db`
+  - Linux: `~/.local/share/OpenCode Token Meter/index.db`
 - **Model Pricing**: Override default pricing in **Settings → Cost Meter**. Supports input, output, caching, and per-request pricing.
 
 ---

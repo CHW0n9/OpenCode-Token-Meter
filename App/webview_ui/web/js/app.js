@@ -82,8 +82,21 @@ class App {
         const scopeSelect = document.getElementById('scope-select');
         if (scopeSelect) {
             scopeSelect.addEventListener('change', (e) => {
+                const newScope = e.target.value;
                 if (window.dashboard) {
-                    window.dashboard.loadStats(e.target.value);
+                    window.dashboard.loadStats(newScope);
+                }
+                
+                // Sync with details page
+                const detailsSelect = document.getElementById('details-time-select');
+                if (detailsSelect && detailsSelect.value !== newScope) {
+                    detailsSelect.value = newScope;
+                    // Hide custom inputs if syncing a non-custom scope
+                    const customInputs = document.getElementById('custom-range-inputs');
+                    if (customInputs) customInputs.classList.add('hidden');
+                    if (window.detailsManager && this.currentView === 'details') {
+                        window.detailsManager.loadDetails();
+                    }
                 }
             });
         }
@@ -262,6 +275,14 @@ class App {
         });
 
         this.currentView = viewId;
+
+        if (window.settingsManager) {
+            if (viewId === 'settings') {
+                window.settingsManager.updateVersionBadge();
+            } else {
+                window.settingsManager.hideVersionBadge();
+            }
+        }
 
         // Trigger view-specific initialization
         if (viewId === 'settings' && window.settingsManager) {

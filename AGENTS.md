@@ -124,7 +124,7 @@ log_debug("Tag", "Debug message")  # Only when OPENCODE_DEBUG env var is set
 The project uses a **single VERSION file** as the source of truth for version numbers. All components read from this file:
 
 - **Location**: `VERSION` (in project root)
-- **Format**: Plain text file containing only the version number (e.g., `1.1.1`)
+- **Format**: Plain text file containing only the version number (e.g., `1.1.3`)
 
 ### Files That Read VERSION
 
@@ -174,8 +174,8 @@ When releasing a new version:
 ### Fallback Behavior
 
 All components have fallback versions in case the VERSION file is missing:
-- Python: Falls back to `"1.1.1"`
-- Shell scripts: Falls back to `"1.1.1"`
-- PyInstaller spec: Falls back to `'1.1.1'`
+- Python: Falls back to `"1.1.3"`
+- Shell scripts: Falls back to `"1.1.3"`
+- PyInstaller spec: Falls back to `'1.1.3'`
 
 This ensures the build process won't fail if the VERSION file is accidentally deleted.

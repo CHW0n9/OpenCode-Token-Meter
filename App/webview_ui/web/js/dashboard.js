@@ -411,16 +411,21 @@ class Dashboard {
             return;
         }
         const data = result.data;
-        this.setThresholdVisibility(!!data.enabled);
-        if (!data.enabled) return;
+        this.setThresholdVisibility(true, !!data.enabled);
         this.updateThresholdBars(data);
     }
 
-    setThresholdVisibility(enabled) {
+    setThresholdVisibility(visible, enabled = true) {
         const tokenCard = document.getElementById('card-token-threshold');
         const costCard = document.getElementById('card-cost-threshold');
-        if (tokenCard) tokenCard.classList.toggle('hidden', !enabled);
-        if (costCard) costCard.classList.toggle('hidden', !enabled);
+        if (tokenCard) {
+            tokenCard.classList.toggle('hidden', !visible);
+            tokenCard.classList.toggle('opacity-60', visible && !enabled);
+        }
+        if (costCard) {
+            costCard.classList.toggle('hidden', !visible);
+            costCard.classList.toggle('opacity-60', visible && !enabled);
+        }
     }
 
     updateThresholdBars(data) {

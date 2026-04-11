@@ -164,7 +164,10 @@
             <!-- Left: Logo -->
             <div class="flex items-center gap-2 w-1/4">
                 <img src="assets/AppIcon.png" alt="Logo" class="w-8 h-8 rounded-lg object-contain">
-                <span class="font-bold text-xl tracking-tight text-white">TokenMeter</span>
+                <div class="flex items-baseline gap-1">
+                    <span class="font-bold text-xl tracking-tight text-white leading-none">OpenCode Token Meter</span>
+                    <span id="app-version-badge" class="hidden text-[11px] text-black-500 leading-none translate-y-[1px]">v--</span>
+                </div>
             </div>
 
             <!-- Middle: Navigation Tabs -->
@@ -610,7 +613,6 @@
                     <table class="w-full text-sm text-left">
                         <thead class="text-xs text-black-400 uppercase bg-black-900/50">
                             <tr>
-                                <th class="px-4 py-3">Provider</th>
                                 <th class="px-4 py-3">Model</th>
                                 <th class="px-4 py-3 text-right">Input $/1M</th>
                                 <th class="px-4 py-3 text-right">Output $/1M</th>
@@ -645,8 +647,8 @@
     <script src="js/dialog.js?v=20250315d"></script>
     <script src="js/api.js?v=20250315d"></script>
     <script src="js/font_scale.js?v=20250315d"></script>
-    <script src="js/charts.v2.js?v=20250315d"></script>
-    <script src="js/dashboard.v2.js?v=20250315d"></script>
+    <script src="js/charts.js?v=20250315d"></script>
+    <script src="js/dashboard.js?v=20250315d"></script>
     <script src="js/settings.js?v=20250315d"></script>
     <script src="js/details.js?v=20250315d"></script>
     <script src="js/app.js?v=20250315d"></script>

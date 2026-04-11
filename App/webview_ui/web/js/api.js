@@ -41,6 +41,16 @@ class ApiClient {
         }
     }
 
+    async getVersion() {
+        if (!this._isPywebviewAvailable()) return { success: false, error: 'PyWebView not available' };
+        try {
+            return await window.pywebview.api.get_version();
+        } catch (error) {
+            console.error('API Error (getVersion):', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     async saveSettings(settings) {
         if (!this._isPywebviewAvailable()) return { success: false, error: 'PyWebView not available' };
         try {

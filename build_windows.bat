@@ -7,6 +7,45 @@ echo ========================================
 echo    OpenCode Token Meter Build Script
 echo ========================================
 
+REM Best-effort cleanup for stale pyc cache that may be read-only/locked
+set "STALE_PYCS=build\OpenCodeTokenMeter\localpycs"
+if exist "%STALE_PYCS%" (
+    echo  - Cleaning stale cache: %STALE_PYCS%
+    attrib -r "%STALE_PYCS%" /s /d >nul 2>&1
+    rmdir /s /q "%STALE_PYCS%" >nul 2>&1
+    if exist "%STALE_PYCS%" (
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -LiteralPath '%STALE_PYCS%' -Recurse -Force -ErrorAction SilentlyContinue" >nul 2>&1
+    )
+    if exist "%STALE_PYCS%" (
+        echo  - WARNING: Could not fully remove %STALE_PYCS% ^(likely in use^), continuing...
+    ) else (
+        echo  - Cache cleaned
+    )
+)
+
+REM Best-effort cleanup for previous EXE that may be locked by running app
+set "DIST_EXE=dist\OpenCodeTokenMeter.exe"
+if exist "%DIST_EXE%" (
+    echo  - Cleaning old executable: %DIST_EXE%
+    attrib -r "%DIST_EXE%" >nul 2>&1
+    del /f /q "%DIST_EXE%" >nul 2>&1
+    if exist "%DIST_EXE%" (
+        taskkill /f /im OpenCodeTokenMeter.exe >nul 2>&1
+        timeout /t 1 /nobreak >nul 2>&1
+        del /f /q "%DIST_EXE%" >nul 2>&1
+    )
+    if exist "%DIST_EXE%" (
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -LiteralPath '%DIST_EXE%' -Force -ErrorAction SilentlyContinue" >nul 2>&1
+    )
+    if exist "%DIST_EXE%" (
+        echo ERROR: Old executable is still locked ^(dist\OpenCodeTokenMeter.exe^).
+        echo        Please close running OpenCode Token Meter and run build again.
+        exit /b 1
+    ) else (
+        echo  - Old executable cleaned
+    )
+)
+
 REM Check Python
 for /f "tokens=2 delims= " %%v in ('python --version 2^>^&1') do set PYVER=%%v
 if "%PYVER%"=="" (
