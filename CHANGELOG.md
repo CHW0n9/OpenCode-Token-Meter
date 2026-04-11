@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Release Assets**: Updated README download links and versioned filenames for 1.1.3.
+- **Release Assets**: Updated README download links.
+- **Setting Page**: Now the models are folded by providers.
 
 ---
 
