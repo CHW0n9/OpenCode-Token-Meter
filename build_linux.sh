@@ -5,11 +5,15 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
 DIST_DIR="$ROOT_DIR/dist"
 PACKAGING_DIR="$ROOT_DIR/packaging/linux"
+TAILWIND_DIR="$ROOT_DIR/App/webview_ui/web"
 APP_NAME="OpenCode Token Meter"
 PKG_NAME="opencode-token-meter"
 BIN_NAME="opencode-token-meter"
 VERSION_FILE="$ROOT_DIR/VERSION"
 VERSION="1.1.3"
+TAILWIND_INPUT="$ROOT_DIR/App/webview_ui/web/css/tailwind.input.css"
+TAILWIND_OUTPUT="$ROOT_DIR/App/webview_ui/web/css/tailwind.css"
+TAILWIND_CONFIG="$ROOT_DIR/App/webview_ui/web/tailwind.config.js"
 
 if [ -f "$VERSION_FILE" ]; then
   VERSION="$(tr -d '\n' < "$VERSION_FILE")"
@@ -60,17 +64,36 @@ cleanup() {
 trap cleanup EXIT
 
 # Install dependencies
-echo -e "\n${BLUE}[1/4] Checking dependencies...${NC}"
+echo -e "\n${BLUE}[1/5] Checking dependencies...${NC}"
 "$PYTHON" -m pip install --quiet --upgrade pyinstaller pywebview pillow pyperclip 2>/dev/null || true
 echo -e " - Dependencies OK"
 
+# Compile Tailwind CSS
+echo -e "\n${BLUE}[2/5] Building frontend CSS...${NC}"
+if [ -f "$TAILWIND_INPUT" ] && [ -f "$TAILWIND_CONFIG" ]; then
+  if command -v npx >/dev/null 2>&1; then
+    (
+      cd "$TAILWIND_DIR"
+      npx tailwindcss@3.4.17 -c "tailwind.config.js" -i "css/tailwind.input.css" -o "css/tailwind.css" --minify
+    ) >/dev/null
+    echo -e " - Tailwind CSS compiled"
+  elif [ -f "$TAILWIND_OUTPUT" ]; then
+    echo -e " - npx not found, using existing tailwind.css"
+  else
+    echo -e "${RED}Error: npx not found and $TAILWIND_OUTPUT is missing${NC}"
+    exit 1
+  fi
+else
+  echo -e " - Tailwind sources not present, skipping"
+fi
+
 # Clean previous builds
-echo -e "\n${BLUE}[2/4] Cleaning previous builds...${NC}"
+echo -e "\n${BLUE}[3/5] Cleaning previous builds...${NC}"
 rm -rf "$BUILD_DIR" "$DIST_DIR"
 echo -e " - Cleaned"
 
 # Build using unified spec file
-echo -e "\n${BLUE}[3/4] Building application...${NC}"
+echo -e "\n${BLUE}[4/5] Building application...${NC}"
 
 TEMP_LOG=$(mktemp)
 "$PYTHON" -m PyInstaller --clean --noconfirm --log-level=ERROR OpenCodeTokenMeter.spec > "$TEMP_LOG" 2>&1 &
@@ -267,7 +290,7 @@ PY
 # Build a .deb package when dpkg-deb is available
 DEB_PATH=""
 if command -v dpkg-deb >/dev/null 2>&1; then
-  echo -e "\n${BLUE}[4/4] Creating Debian package...${NC}"
+  echo -e "\n${BLUE}[5/5] Creating Debian package...${NC}"
 
   TEMP_DEB_LOG=$(mktemp)
   STAGING_DIR="$BUILD_DIR/debroot"
@@ -314,7 +337,7 @@ fi
   DEB_SIZE=$(du -h "$DEB_PATH" | cut -f1 | xargs)
   echo -e " - Deb: ${GREEN}${DEB_SIZE}${NC}"
 else
-  echo -e "\n${BLUE}[4/4] Skipping Debian package (dpkg-deb not found)${NC}"
+  echo -e "\n${BLUE}[5/5] Skipping Debian package (dpkg-deb not found)${NC}"
 fi
 
 echo -e "\n${GREEN}========================================${NC}"

@@ -215,6 +215,7 @@ class ChartManager {
                 // Fixed Brand Colors
                 const pName = meta.provider.toUpperCase();
                 if (pName.includes('GOOGLE')) hue = 5; // // Red
+                else if (pName.includes('OPENAI')) hue = 272; // Purple
                 else if (pName.includes('OPENCODE')) {
                     hue = 0;
                     sat = 0; // Grayscale

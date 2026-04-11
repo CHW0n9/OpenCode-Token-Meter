@@ -9,6 +9,7 @@ import json
 import threading
 import atexit
 import traceback
+from urllib.parse import urlencode
 
 
 # Add paths for imports
@@ -78,8 +79,11 @@ def create_window(api, debug=False, initial_page="dashboard"):
 
     if os.path.exists(index_path):
         # Pass local file path directly; pywebview's http_server will serve it
-        # Append ?page= query parameter for JS-side routing
-        url = index_path + f"?page={initial_page}"
+        # Append routing and cache-busting parameters so Linux WebKit does not
+        # reuse stale HTML/JS/CSS after package upgrades.
+        cache_rev = str(int(os.path.getmtime(index_path)))
+        query = urlencode({"page": initial_page, "rev": cache_rev})
+        url = f"{index_path}?{query}"
         log_info("Main", f"Loading path: {url}")
     else:
         log_error("Main", f"index.html not found at {index_path}")
@@ -105,58 +109,79 @@ def create_window(api, debug=False, initial_page="dashboard"):
 def apply_windows_titlebar_color(window):
     """Apply native Windows 10/11 dark mode and custom titlebar color"""
     import platform
+
     if platform.system() != "Windows":
         return
-        
+
     try:
         import ctypes
-        
+
         # Give the window a moment to initialize its handle
         time.sleep(0.5)
-        
+
         # Try to find the window by its initial title
         hwnd = ctypes.windll.user32.FindWindowW(None, "OpenCode Token Meter")
         if not hwnd:
             hwnd = ctypes.windll.user32.FindWindowW(None, window.title)
-            
+
         if not hwnd:
             log_debug("Main", "Could not find window handle for titlebar color")
             return
-            
+
         # DWMWA constants for dark mode and colors
         DWMWA_USE_IMMERSIVE_DARK_MODE_V1 = 19  # Windows 10 1809
         DWMWA_USE_IMMERSIVE_DARK_MODE_V2 = 20  # Windows 10 1903+
-        DWMWA_CAPTION_COLOR = 35               # Windows 11 Build 22000+
-        DWMWA_TEXT_COLOR = 36                  # Windows 11 Build 22000+
-        
+        DWMWA_CAPTION_COLOR = 35  # Windows 11 Build 22000+
+        DWMWA_TEXT_COLOR = 36  # Windows 11 Build 22000+
+
         # #171717 is RGB(23, 23, 23) -> COLORREF is 0x00bbggrr
         bg_color = 0x17 | (0x17 << 8) | (0x17 << 16)
-        
+
         # 1. Enable Dark Mode for title bar (Windows 10+)
         value = ctypes.c_int(1)
         try:
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_V2, ctypes.byref(value), ctypes.sizeof(value))
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_USE_IMMERSIVE_DARK_MODE_V2,
+                ctypes.byref(value),
+                ctypes.sizeof(value),
+            )
         except Exception:
             try:
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_V1, ctypes.byref(value), ctypes.sizeof(value))
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_USE_IMMERSIVE_DARK_MODE_V1,
+                    ctypes.byref(value),
+                    ctypes.sizeof(value),
+                )
             except Exception:
                 pass
-                
+
         # 2. Change Caption Color and Text Color (Windows 11+)
         try:
             bg_color_c = ctypes.c_int(bg_color)
             # Set background color to #171717
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ctypes.byref(bg_color_c), ctypes.sizeof(bg_color_c))
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_CAPTION_COLOR,
+                ctypes.byref(bg_color_c),
+                ctypes.sizeof(bg_color_c),
+            )
             # Set text color to same as background to hide it
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, ctypes.byref(bg_color_c), ctypes.sizeof(bg_color_c))
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_TEXT_COLOR,
+                ctypes.byref(bg_color_c),
+                ctypes.sizeof(bg_color_c),
+            )
         except Exception:
             pass
-            
+
         # 3. Explicitly clear the window text to hide it on Windows 10 as well
         # Using zero-width space so it doesn't default to class name
         ctypes.windll.user32.SetWindowTextW(hwnd, "\u200b")
         log_info("Main", "Applied Windows dark titlebar styling")
-        
+
     except Exception as e:
         log_debug("Main", f"Failed to apply Windows titlebar colors: {e}")
 
@@ -235,7 +260,7 @@ def main(debug=False, no_tray=False, initial_page="dashboard"):
             """Called when webview DOM is ready"""
             log_info("Main", "Webview DOM is ready, enabling navigation")
             app_ready_event.set()
-            
+
             # Apply Windows custom titlebar color
             apply_windows_titlebar_color(window)
 

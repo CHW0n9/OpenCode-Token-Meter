@@ -57,6 +57,14 @@ echo  - Python: %PYVER%
 REM Check dependencies
 echo.
 echo [1/3] Checking dependencies...
+
+REM Pin setuptools to avoid win10toast/pkg_resources deprecation breakage
+python -c "import setuptools,sys,re;m=re.match(r'(\d+)', setuptools.__version__);sys.exit(0 if m and int(m.group(1)) < 81 else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo  - Pinning setuptools ^< 81 for Windows build compatibility...
+    pip install --quiet "setuptools<81" >nul 2>&1
+)
+
 python -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
     echo  - Installing PyInstaller...
@@ -92,6 +100,13 @@ if errorlevel 1 (
     echo  - Installing win10toast...
     pip install --quiet win10toast >nul 2>&1
 )
+
+REM Re-assert setuptools pin in case dependency resolution upgraded it
+python -c "import setuptools,sys,re;m=re.match(r'(\d+)', setuptools.__version__);sys.exit(0 if m and int(m.group(1)) < 81 else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo  - Re-pinning setuptools ^< 81...
+    pip install --quiet "setuptools<81" >nul 2>&1
+)
  echo  - Dependencies OK
 
 REM Check resources
@@ -112,7 +127,9 @@ REM Create temp file for output
 set TEMP_LOG=%TEMP%\pyinstaller_build.log
 
 REM Build using the unified spec file with reduced verbosity
+set "PYTHONWARNINGS=ignore:pkg_resources is deprecated as an API:UserWarning"
 pyinstaller --clean --noconfirm --log-level=ERROR OpenCodeTokenMeter.spec > "%TEMP_LOG%" 2>&1
+set "PYTHONWARNINGS="
 
 if errorlevel 1 (
     echo.

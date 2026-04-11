@@ -24,7 +24,7 @@ python App/webview_ui/main_tray.py --debug
 - **Dependencies**:
   - `pip install pyinstaller pywebview pystray pillow pyperclip`
   - macOS specific: `pip install rumps pyobjc-framework-Cocoa`
-  - Windows specific: `pip install win10toast`
+  - Windows specific: `pip install "setuptools<81" win10toast`
 
 ---
 

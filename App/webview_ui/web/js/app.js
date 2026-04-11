@@ -16,6 +16,61 @@ class App {
         this.currentView = 'dashboard';
     }
 
+    refreshDashboardView(showSpinner = false, forceReload = false) {
+        if (!window.dashboard) return;
+
+        const refreshBtn = document.getElementById('refresh-btn');
+
+        requestAnimationFrame(() => {
+            if (window.chartManager?.trendChart?.resize) {
+                window.chartManager.trendChart.resize();
+            }
+            if (window.chartManager?.distributionChart?.resize) {
+                window.chartManager.distributionChart.resize();
+            }
+        });
+
+        const recentlyLoaded = window.dashboard.lastLoadedAt && (Date.now() - window.dashboard.lastLoadedAt < 1500);
+        if (!forceReload && (window.dashboard.activeLoadCount > 0 || recentlyLoaded)) {
+            return;
+        }
+
+        (async () => {
+            let startedSpinner = false;
+            try {
+                if (showSpinner && forceReload) {
+                    if (refreshBtn) refreshBtn.classList.add('animate-spin');
+                    startedSpinner = true;
+                    await window.dashboard.loadStats();
+                    return;
+                }
+
+                if (showSpinner) {
+                    const lastTs = window.dashboard.lastUpdateTs || 0;
+                    const check = await window.api.checkUpdates(lastTs);
+                    if (!check.success || (check.data && check.data.needed)) {
+                        if (refreshBtn) refreshBtn.classList.add('animate-spin');
+                        startedSpinner = true;
+                    }
+
+                    if (check.success && check.data && typeof check.data.ts !== 'undefined') {
+                        window.dashboard.lastUpdateTs = check.data.ts || window.dashboard.lastUpdateTs;
+                    }
+
+                    if (check.success && check.data && !check.data.needed && !forceReload) {
+                        return;
+                    }
+                }
+
+                await window.dashboard.loadStats();
+            } finally {
+                if (startedSpinner && refreshBtn) {
+                    setTimeout(() => refreshBtn.classList.remove('animate-spin'), 500);
+                }
+            }
+        })();
+    }
+
     async init() {
         console.log('App initializing...');
         this.setupEventListeners();
@@ -37,6 +92,10 @@ class App {
         if (window.detailsManager) {
             console.log('Initializing DetailsManager...');
             window.detailsManager.init();
+        }
+
+        if (window.customSelectManager) {
+            window.customSelectManager.initAll();
         }
 
         // Start Agent Status Polling
@@ -91,6 +150,9 @@ class App {
                 const detailsSelect = document.getElementById('details-time-select');
                 if (detailsSelect && detailsSelect.value !== newScope) {
                     detailsSelect.value = newScope;
+                    if (window.customSelectManager) {
+                        window.customSelectManager.sync('details-time-select');
+                    }
                     // Hide custom inputs if syncing a non-custom scope
                     const customInputs = document.getElementById('custom-range-inputs');
                     if (customInputs) customInputs.classList.add('hidden');
@@ -105,12 +167,7 @@ class App {
         const refreshBtn = document.getElementById('refresh-btn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
-                if (window.dashboard) {
-                    refreshBtn.classList.add('animate-spin');
-                    window.dashboard.loadStats().then(() => {
-                        setTimeout(() => refreshBtn.classList.remove('animate-spin'), 500);
-                    });
-                }
+                this.refreshDashboardView(true, true);
             });
         }
     }
@@ -171,7 +228,7 @@ class App {
             if (result.success && result.data && result.data.active) {
                 // Active: Green dot, "Agent Active"
                 dot.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
-                text.textContent = 'Agent Active';
+                text.textContent = 'Metering';
                 // Container: Neutral (Black/Gray)
                 container.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full border border-black-700 bg-black-800 transition-colors';
                 // Text: White/Gray (Neutral)
@@ -284,9 +341,13 @@ class App {
             }
         }
 
-        // Trigger view-specific initialization
+        // Trigger view-specific refresh
         if (viewId === 'settings' && window.settingsManager) {
             window.settingsManager.loadSettings();
+        }
+
+        if (viewId === 'dashboard') {
+            this.refreshDashboardView(false, false);
         }
 
         // Defer details loading to click or explicit refresh

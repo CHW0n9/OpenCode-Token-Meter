@@ -15,6 +15,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
     background-color: #000000;
     color: #ffffff;
+    color-scheme: dark;
     overflow-x: hidden;
     font-size: var(--fs-base);
     font-weight: 400;
@@ -94,6 +95,7 @@ select {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
+    color-scheme: dark;
     background-color: #111111;
     color: #ffffff;
     border: 1px solid #333333;
@@ -140,6 +142,117 @@ select option:checked {
 select:-moz-focusring {
     color: transparent;
     text-shadow: 0 0 0 #ffffff;
+}
+
+.custom-select-native {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.custom-select-trigger {
+    background-color: #111111 !important;
+    border: 1px solid #333333 !important;
+    color: #ffffff !important;
+    cursor: pointer;
+    user-select: none;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+}
+
+main, main * {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+.custom-select-trigger:hover {
+    background-color: #1a1a1a !important;
+    border-color: #555555 !important;
+}
+
+.custom-select-root[data-open="true"] .custom-select-chevron {
+    transform: rotate(180deg);
+}
+
+.custom-select-menu {
+    position: fixed !important;
+    background-color: #111111 !important;
+    border: 1px solid #333333 !important;
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    contain: layout paint;
+}
+
+.custom-select-options {
+    overscroll-behavior: contain;
+}
+
+.custom-select-option {
+    background: transparent !important;
+    border: 0 !important;
+    color: #a3a3a3 !important;
+    cursor: pointer;
+    user-select: none;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+}
+
+.custom-select-option:hover,
+.custom-select-option:focus {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #ffffff !important;
+}
+
+.custom-select-option.text-white {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.custom-select-option-indented {
+    padding-left: 1.75rem !important;
+}
+
+.pricing-step-btn {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: rgba(255, 255, 255, 0.72) !important;
+    width: 11px !important;
+    height: 11px !important;
+    min-width: 11px !important;
+    min-height: 11px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+}
+
+.pricing-number-input:hover .pricing-step-btn,
+.pricing-number-input:focus-within .pricing-step-btn {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.pricing-step-btn svg {
+    width: 9px !important;
+    height: 9px !important;
+}
+
+.pricing-step-btn:hover,
+.pricing-step-btn:active,
+.pricing-step-btn:focus {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: #ffffff !important;
 }
 
 /* Buttons */
@@ -233,31 +346,11 @@ button {
     color: #666666;
 }
 
-/* Card Hover Effects */
-.stat-card {
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
-}
-
-/* Status Indicators */
-.status-online {
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-}
-
 /* Chart Container */
 .chart-container {
     position: relative;
     height: 300px;
     width: 100%;
-}
-
-/* Toast Notifications */
-.toast {
-    animation: fadeIn 0.3s ease-out;
 }
 
 /* Hide scrollbar but keep functionality */
@@ -268,23 +361,6 @@ button {
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
-}
-
-/* Loading States */
-.skeleton {
-    background: linear-gradient(90deg, #1a1a1a 25%, #333333 50%, #1a1a1a 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-}
-
-@keyframes shimmer {
-    0% {
-        background-position: 200% 0;
-    }
-
-    100% {
-        background-position: -200% 0;
-    }
 }
 
 /* Navigation tabs */
@@ -300,4 +376,31 @@ button {
 
 .nav-tab:hover:not(.text-white) {
     background: #1a1a1a;
+}
+
+/* Details mode tabs (match top banner tab style) */
+.details-view-btn {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+}
+
+.details-view-btn.text-white {
+    background: #222222 !important;
+    border-color: #444444 !important;
+}
+
+.details-view-btn:hover:not(.text-white) {
+    background: #1a1a1a !important;
+    border-color: transparent !important;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }

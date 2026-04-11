@@ -16,6 +16,9 @@ class DetailsManager {
         const timeSelect = document.getElementById('details-time-select');
         if (timeSelect) {
             timeSelect.value = this.currentScope;
+            if (window.customSelectManager) {
+                window.customSelectManager.sync('details-time-select');
+            }
         }
 
         this.setupEventListeners();
@@ -144,6 +147,9 @@ class DetailsManager {
                     const dashboardSelect = document.getElementById('scope-select');
                     if (dashboardSelect && dashboardSelect.value !== newScope) {
                         dashboardSelect.value = newScope;
+                        if (window.customSelectManager) {
+                            window.customSelectManager.sync('scope-select');
+                        }
                         if (window.dashboard) {
                             window.dashboard.loadStats(newScope);
                         }

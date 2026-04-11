@@ -5,6 +5,7 @@ class SettingsManager {
         this.pricingCatalog = { default: {}, models: {} };
         this.isRendering = false; // // Flag to prevent save button trigger during render
         this.expandedProviders = new Set();
+        this.addModelDraft = null;
     }
 
     hasUnsavedChanges() {
@@ -75,6 +76,28 @@ class SettingsManager {
         }
     }
 
+    renderNumberInput(value, step, inputClass, extraAttrs = '') {
+        const upChevron = `<svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5L8 5l4.5 4.5"></path></svg>`;
+        const downChevron = `<svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5L8 11l4.5-4.5"></path></svg>`;
+        const safeValue = value ?? 0;
+        return `
+            <div class="pricing-number-input relative inline-flex items-stretch justify-end w-24">
+                <input type="number" step="${step}" class="${inputClass} pr-8" value="${safeValue}" ${extraAttrs}>
+                <div class="absolute inset-y-0 right-[0.4rem] flex flex-col justify-center gap-px">
+                    <button type="button" tabindex="-1" class="pricing-step-btn flex items-center justify-center text-white/70 hover:text-white transition-colors" data-step-dir="up">${upChevron}</button>
+                    <button type="button" tabindex="-1" class="pricing-step-btn flex items-center justify-center text-white/70 hover:text-white transition-colors" data-step-dir="down">${downChevron}</button>
+                </div>
+            </div>
+        `;
+    }
+
+    setupCustomSelects() {
+        if (window.customSelectManager) {
+            window.customSelectManager.initSelectIds(['timezone-select', 'default-scope-select']);
+            window.customSelectManager.syncIds(['timezone-select', 'default-scope-select']);
+        }
+    }
+
     setupEventListeners() {
         // Save button
         const saveBtn = document.getElementById('settings-save-btn');
@@ -126,6 +149,8 @@ class SettingsManager {
                 this.showSaveButton();
             });
         }
+
+        this.setupCustomSelects();
 
         // Notifications toggle
         const notificationsEnabled = document.getElementById('notifications-enabled');
@@ -233,6 +258,8 @@ class SettingsManager {
         if (defaultScopeSelect) {
             defaultScopeSelect.value = this.settings.default_time_scope || 'week';
         }
+
+        this.setupCustomSelects();
 
         // Model pricing table
         this.renderModelPricingTable();
@@ -360,7 +387,7 @@ class SettingsManager {
                 if (item.isUserOnly || (item.isCustomized && item.isDefault)) {
                     modelNameHtml = `<div class="flex items-center gap-2">
                          <span>${this.escapeHtml(item.name)}</span>
-                         <span class="text-[10px] bg-black-700 text-black-300 px-1.5 py-0.5 rounded">Custom</span>
+                         <span class="inline-flex items-center h-5 text-[10px] leading-none bg-black-700 text-black-300 px-1.5 rounded">Custom</span>
                        </div>`;
                 }
 
@@ -369,33 +396,29 @@ class SettingsManager {
                 tr.innerHTML = `
                     <td class="px-[3.5rem] py-3 align-middle font-medium text-white">${modelNameHtml}</td>
                     <td class="px-4 py-3 align-middle text-right">
-                        <input type="number" step="0.5" class="${inputClass}" 
-                            value="${item.pricing.input || 0}" data-model="${this.escapeHtml(item.id)}" data-field="input">
+                        ${this.renderNumberInput(item.pricing.input || 0, '0.5', inputClass, `data-model="${this.escapeHtml(item.id)}" data-field="input"`)}
                     </td>
                     <td class="px-4 py-3 align-middle text-right">
-                        <input type="number" step="0.5" class="${inputClass}" 
-                            value="${item.pricing.output || 0}" data-model="${this.escapeHtml(item.id)}" data-field="output">
+                        ${this.renderNumberInput(item.pricing.output || 0, '0.5', inputClass, `data-model="${this.escapeHtml(item.id)}" data-field="output"`)}
                     </td>
                     <td class="px-4 py-3 align-middle text-right">
-                        <input type="number" step="0.05" class="${inputClass}" 
-                            value="${item.pricing.caching || 0}" data-model="${this.escapeHtml(item.id)}" data-field="caching">
+                        ${this.renderNumberInput(item.pricing.caching || 0, '0.05', inputClass, `data-model="${this.escapeHtml(item.id)}" data-field="caching"`)}
                     </td>
                     <td class="px-4 py-3 align-middle text-right">
-                        <input type="number" step="0.04" class="${inputClass}" 
-                            value="${item.pricing.request || 0}" data-model="${this.escapeHtml(item.id)}" data-field="request">
+                        ${this.renderNumberInput(item.pricing.request || 0, '0.04', inputClass, `data-model="${this.escapeHtml(item.id)}" data-field="request"`)}
                     </td>
                     <td class="px-4 py-3 align-middle text-center">
-                        <div class="flex items-center justify-center gap-1">
+                        <div class="flex items-center justify-center gap-1" style="height: 2.5rem;">
                             ${isModified ? `
-                                <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-save-btn" title="Save changes" data-model="${this.escapeHtml(item.id)}">${confirmIcon}</button>
-                                <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-discard-btn" title="Discard changes" data-model="${this.escapeHtml(item.id)}">${cancelIcon}</button>
+                                <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-save-btn inline-flex items-center justify-center leading-none" title="Save changes" data-model="${this.escapeHtml(item.id)}">${confirmIcon}</button>
+                                <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-discard-btn inline-flex items-center justify-center leading-none" title="Discard changes" data-model="${this.escapeHtml(item.id)}">${cancelIcon}</button>
                             ` : ''}
                             
                             ${item.isDefault && item.isCustomized && !isModified ?
-                        `<button class="text-black-400 hover:text-white transition-colors reset-model-btn p-2 rounded hover:bg-black-700" title="Reset to default" data-model="${this.escapeHtml(item.id)}">${resetIcon}</button>`
+                        `<button class="text-black-400 hover:text-white transition-colors reset-model-btn p-2 rounded hover:bg-black-700 inline-flex items-center justify-center leading-none" title="Reset to default" data-model="${this.escapeHtml(item.id)}">${resetIcon}</button>`
                         : ''}
                             ${item.isUserOnly && !isModified ?
-                        `<button class="text-black-400 hover:text-red-400 transition-colors delete-model-btn p-2 rounded hover:bg-black-700" title="Delete" data-model="${this.escapeHtml(item.id)}">${deleteIcon}</button>`
+                        `<button class="text-black-400 hover:text-red-400 transition-colors delete-model-btn p-2 rounded hover:bg-black-700 inline-flex items-center justify-center leading-none" title="Delete" data-model="${this.escapeHtml(item.id)}">${deleteIcon}</button>`
                         : ''}
                         </div>
                     </td>
@@ -404,6 +427,10 @@ class SettingsManager {
                 tbody.appendChild(tr);
             });
         });
+
+        if (this.addModelDraft) {
+            this.showAddModelDialog();
+        }
 
         // Re - bind listeners
         this.setupTableListeners(tbody);
@@ -440,6 +467,22 @@ class SettingsManager {
                 this.showSaveButton();
                 // Re - render to show reset button if needed
                 this.renderModelPricingTable();
+            });
+        });
+
+        tbody.querySelectorAll('.pricing-step-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const wrapper = e.currentTarget.closest('div.relative');
+                const input = wrapper ? wrapper.querySelector('input[data-model]') : null;
+                if (!input) return;
+                const step = parseFloat(input.step || '1') || 1;
+                const direction = e.currentTarget.dataset.stepDir === 'down' ? -1 : 1;
+                const current = parseFloat(input.value || '0') || 0;
+                const decimals = (input.step.split('.')[1] || '').length;
+                input.value = (current + (step * direction)).toFixed(decimals);
+                input.dispatchEvent(new Event('change', { bubbles: true }));
             });
         });
 
@@ -572,37 +615,48 @@ class SettingsManager {
             return;
         }
 
+        if (!this.addModelDraft) {
+            this.addModelDraft = {
+                provider: '',
+                model: '',
+                input: 0,
+                output: 0,
+                caching: 0,
+                request: 0,
+            };
+        }
+
         const tr = document.createElement('tr');
         tr.id = 'add-model-row';
         tr.className = 'border-b border-black-700 bg-black-800/80';
 
-        const inputClass = "bg-black-900 border border-black-700 text-white text-base rounded px-2 py-1.5 w-full focus:border-white focus:outline-none transition-colors";
+        const inputClass = "bg-black-900 border border-black-700 text-white text-base rounded px-2 py-1.5 focus:border-white focus:outline-none transition-colors";
         const numberInputClass = "bg-black-900 border border-black-700 text-white text-base rounded px-2 py-1.5 w-24 text-right focus:border-white focus:outline-none transition-colors";
 
         const confirmIcon = `<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
         const cancelIcon = `<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
 
         tr.innerHTML = `
-            <td class="px-4 py-3 align-middle">
-                <input type="text" id="new_provider_id" placeholder="Provider" class="${inputClass}">
-            </td>
-            <td class="px-4 py-3 align-middle">
-                <input type="text" id="new_model_id" placeholder="Model ID" class="${inputClass}">
-            </td>
-            <td class="px-4 py-3 align-middle text-right">
-                <input type="number" id="new_input_cost" step="0.01" placeholder="0.00" class="${numberInputClass}">
+            <td class="px-[3.5rem] py-3 align-middle">
+                <div class="flex items-center gap-2">
+                    <input type="text" id="new_provider_id" placeholder="Provider" class="${inputClass}" style="flex: 0 0 30%; width: 30%;" value="${this.escapeHtml(this.addModelDraft.provider)}">
+                    <input type="text" id="new_model_id" placeholder="Model ID" class="${inputClass}" style="flex: 0 0 70%; width: 70%;" value="${this.escapeHtml(this.addModelDraft.model)}">
+                </div>
             </td>
             <td class="px-4 py-3 align-middle text-right">
-                <input type="number" id="new_output_cost" step="0.01" placeholder="0.00" class="${numberInputClass}">
+                ${this.renderNumberInput(this.addModelDraft.input, '0.01', numberInputClass, 'id="new_input_cost" placeholder="0.00"')}
             </td>
             <td class="px-4 py-3 align-middle text-right">
-                <input type="number" id="new_cache_cost" step="0.01" placeholder="0.00" class="${numberInputClass}">
+                ${this.renderNumberInput(this.addModelDraft.output, '0.01', numberInputClass, 'id="new_output_cost" placeholder="0.00"')}
             </td>
             <td class="px-4 py-3 align-middle text-right">
-                <input type="number" id="new_request_cost" step="0.0001" placeholder="0.00" class="${numberInputClass}">
+                ${this.renderNumberInput(this.addModelDraft.caching, '0.01', numberInputClass, 'id="new_cache_cost" placeholder="0.00"')}
+            </td>
+            <td class="px-4 py-3 align-middle text-right">
+                ${this.renderNumberInput(this.addModelDraft.request, '0.0001', numberInputClass, 'id="new_request_cost" placeholder="0.00"')}
             </td>
             <td class="px-4 py-3 align-middle text-center">
-                <div class="flex items-center justify-center gap-2">
+                <div class="flex items-center justify-center gap-2" style="height: 2.5rem;">
                     <button id="confirm-add-btn" class="p-1 hover:bg-black-700 rounded transition-colors" title="Add Model">${confirmIcon}</button>
                     <button id="cancel-add-btn" class="p-1 hover:bg-black-700 rounded transition-colors" title="Cancel">${cancelIcon}</button>
                 </div>
@@ -612,15 +666,51 @@ class SettingsManager {
         // Insert as first row
         tbody.insertBefore(tr, tbody.firstChild);
 
-        // Focus
-        document.getElementById('new_provider_id').focus();
+        // Focus only for first open
+        if (!this.addModelDraft.provider && !this.addModelDraft.model) {
+            document.getElementById('new_provider_id').focus();
+        }
+
+        const syncAddModelDraft = () => {
+            this.addModelDraft = {
+                provider: document.getElementById('new_provider_id')?.value?.trim() || '',
+                model: document.getElementById('new_model_id')?.value?.trim() || '',
+                input: parseFloat(document.getElementById('new_input_cost')?.value) || 0,
+                output: parseFloat(document.getElementById('new_output_cost')?.value) || 0,
+                caching: parseFloat(document.getElementById('new_cache_cost')?.value) || 0,
+                request: parseFloat(document.getElementById('new_request_cost')?.value) || 0,
+            };
+        };
+
+        ['new_provider_id', 'new_model_id', 'new_input_cost', 'new_output_cost', 'new_cache_cost', 'new_request_cost'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', syncAddModelDraft);
+            el.addEventListener('change', syncAddModelDraft);
+        });
 
         // Listeners for this row
         document.getElementById('cancel-add-btn').addEventListener('click', () => {
+            this.addModelDraft = null;
             tr.remove();
         });
 
+        tr.querySelectorAll('.pricing-step-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const wrapper = e.currentTarget.closest('div.relative');
+                const input = wrapper ? wrapper.querySelector('input[type="number"]') : null;
+                if (!input) return;
+                const step = parseFloat(input.step || '1') || 1;
+                const direction = e.currentTarget.dataset.stepDir === 'down' ? -1 : 1;
+                const current = parseFloat(input.value || '0') || 0;
+                const decimals = (input.step.split('.')[1] || '').length;
+                input.value = (current + (step * direction)).toFixed(decimals);
+            });
+        });
+
         document.getElementById('confirm-add-btn').addEventListener('click', () => {
+            syncAddModelDraft();
             const provider = document.getElementById('new_provider_id').value.trim();
             const model = document.getElementById('new_model_id').value.trim();
 
@@ -643,6 +733,8 @@ class SettingsManager {
                 request: parseFloat(document.getElementById('new_request_cost').value) || 0,
                 provider: provider
             };
+
+            this.addModelDraft = null;
 
             // Auto - save when confirming model addition
             this.saveSettings();

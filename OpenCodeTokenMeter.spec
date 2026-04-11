@@ -194,7 +194,7 @@ if IS_WINDOWS:
         name='OpenCodeTokenMeter',
         debug=False,
         bootloader_ignore_signals=False,
-        strip=True,  # Strip debug symbols to reduce size
+        strip=False,  # Windows build env may not have strip tool
         upx=True,
         upx_exclude=[],
         runtime_tmpdir=None,

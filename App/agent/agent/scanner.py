@@ -17,13 +17,14 @@ from agent.db import (
     update_sync_state,
 )
 from agent.util import safe_int
-from agent.logger import log_info, log_error
+from agent.logger import log_info, log_error, log_debug
 
 
 class Scanner:
     def __init__(self):
         init_db()
         self.last_scan_time = 0
+        self.file_scan_enabled = os.path.isdir(MSG_ROOT)
 
     def parse_tokens(self, j):
         """
@@ -69,8 +70,7 @@ class Scanner:
         """
         # Check if opencode.db exists
         if not os.path.exists(OPENCODE_DB_PATH):
-            log_info("Scanner", "opencode.db not found, skipping sync")
-            return
+            return 0
 
         try:
             # Get the last sync timestamp
@@ -91,10 +91,7 @@ class Scanner:
             conn.close()
 
             if not rows:
-                log_info("Scanner", "No new messages from opencode.db to sync")
-                return
-
-            log_info("Scanner", f"Syncing {len(rows)} messages from opencode.db...")
+                return 0
 
             max_ts = last_ts
             messages_to_insert = []
@@ -196,16 +193,14 @@ class Scanner:
                 from agent.db import insert_messages_batch
 
                 insert_messages_batch(messages_to_insert)
-                log_info(
-                    "Scanner",
-                    f"Inserted {len(messages_to_insert)} messages from opencode.db",
-                )
 
             # Update sync state with max timestamp
             update_sync_state("opencode_db_last_ts", max_ts)
+            return len(messages_to_insert)
 
         except Exception as e:
             log_error("Scanner", f"Error during opencode.db sync: {e}")
+            return 0
 
     def scan_once(self, incremental=True, max_age_days=None, quick_start=False):
         """
@@ -224,8 +219,8 @@ class Scanner:
         skipped_count = 0
         session_count = 0
 
-        if not os.path.isdir(MSG_ROOT):
-            log_info("Scanner", "MSG_ROOT not found, skipping file scan")
+        if not self.file_scan_enabled:
+            pass
         else:
             # Calculate cutoff time
             # quick_start legacy support
@@ -243,7 +238,7 @@ class Scanner:
                 if max_age_days
                 else ("incremental" if incremental else "full")
             )
-            log_info("Scanner", f"Starting {scan_mode} scan (optimized)...")
+            log_debug("Scanner", f"Starting {scan_mode} scan (optimized)...")
 
             # 1. Initialize Cache (Lazy Load)
             # 1. Initialize Cache (Lazy Load)
@@ -260,7 +255,7 @@ class Scanner:
                 self.cache_days_loaded = max_age_days
                 count_str = f"{len(self.known_file_mtimes)}"
                 scope_str = f"{max_age_days} days" if max_age_days else "FULL history"
-                log_info(
+                log_debug(
                     "Scanner",
                     f"Initialized cache with {count_str} files (Scope: {scope_str})",
                 )
@@ -286,7 +281,7 @@ class Scanner:
                     should_reload = True
 
                 if should_reload:
-                    log_info(
+                    log_debug(
                         "Scanner",
                         f"Cache Rotation: Downgrading cache from {self.cache_days_loaded if hasattr(self, 'cache_days_loaded') else 'Unknown'}d to {max_age_days}d to save RAM.",
                     )
@@ -315,7 +310,7 @@ class Scanner:
                 CACHE_TTL = 3600  # 1 hour
                 last_ts = getattr(self, "last_cache_reload_ts", 0)
                 if time.time() - last_ts > CACHE_TTL:
-                    log_info(
+                    log_debug(
                         "Scanner",
                         f"Cache TTL ({CACHE_TTL}s) expired. Reloading cache to prune old entries...",
                     )
@@ -513,19 +508,19 @@ class Scanner:
 
             # 2. Perform batch updates
             if messages_to_insert:
-                log_info(
+                log_debug(
                     "Scanner", f"Batch inserting {len(messages_to_insert)} messages..."
                 )
                 insert_messages_batch(messages_to_insert)
 
             if files_to_update:
-                log_info(
+                log_debug(
                     "Scanner", f"Batch updating {len(files_to_update)} file mtimes..."
                 )
                 update_file_mtimes_batch(files_to_update)
 
         # Sync messages from opencode.db
-        self._sync_from_opencode_db()
+        db_count = self._sync_from_opencode_db()
 
         # Mark failed requests after scanning new messages
         mark_failed_requests()
@@ -533,9 +528,20 @@ class Scanner:
         self.last_scan_time = int(time.time())
         elapsed = time.time() - start_time
 
-        log_info(
-            "Scanner",
-            f"Scan complete: {count} new files processed, {skipped_count} skipped, {session_count} sessions checked in {elapsed:.2f}s",
-        )
+        total_count = count + db_count
 
-        return count
+        if total_count > 0:
+            summary_parts = []
+            if count > 0 or self.file_scan_enabled:
+                summary_parts.append(
+                    f"{count} new files processed, {skipped_count} skipped, {session_count} sessions checked"
+                )
+            if db_count > 0:
+                summary_parts.append(f"{db_count} opencode.db messages synced")
+
+            log_info(
+                "Scanner",
+                f"Scan complete: {', '.join(summary_parts)} in {elapsed:.2f}s",
+            )
+
+        return total_count

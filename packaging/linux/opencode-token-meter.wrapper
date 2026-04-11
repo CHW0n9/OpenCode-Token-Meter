@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+APP_DIR="/opt/opencode-token-meter"
+cd "$APP_DIR"
+exec "$APP_DIR/OpenCode Token Meter" "$@"

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenCode Token Meter</title>
-    <link rel="icon" type="image/x-icon" href="assets/AppIcon.ico">
+    <link rel="icon" type="image/x-icon" href="assets/AppIcon.ico?v=20260411b">
 
     <!-- Load-Critical Styles (Render immediately) -->
     <style id="critical-loading-styles">
@@ -93,61 +93,12 @@
         }
     </style>
 
-    <!-- External Libraries - Defer to prevent render blocking -->
-    <script src="https://cdn.tailwindcss.com" defer></script>
-    <script src="js/vendor/chart.min.js" defer></script>
-
-    <!-- Tailwind Config - Defer to match Tailwind -->
-    <script>
-        window.addEventListener('DOMContentLoaded', () => {
-            if (window.tailwind) {
-                tailwind.config = {
-                    darkMode: 'class',
-                    theme: {
-                        extend: {
-                            colors: {
-                                black: {
-                                    50: '#fafafa',
-                                    100: '#f5f5f5',
-                                    200: '#e5e5e5',
-                                    300: '#d4d4d4',
-                                    400: '#a3a3a3',
-                                    500: '#737373',
-                                    600: '#525252',
-                                    700: '#404040',
-                                    800: '#262626',
-                                    900: '#171717',
-                                    950: '#0a0a0a',
-                                }
-                            },
-                            fontFamily: {
-                                sans: ['Lato', 'system-ui', 'sans-serif'],
-                            },
-                            fontWeight: {
-                                normal: '400',
-                                bold: '900',
-                            },
-                            fontSize: {
-                                's': ['var(--fs-s)', { lineHeight: '1.2' }],
-                                'base': ['var(--fs-base)', { lineHeight: '1.5' }],
-                                'l': ['var(--fs-l)', { lineHeight: '1.4' }],
-                                'xl': ['var(--fs-xl)', { lineHeight: '1.2' }],
-
-                                // Maintain legacy keys mapped to new variables for stability during transition
-                                'xs': 'var(--fs-s)',
-                                'sm': 'var(--fs-s)',
-                                'lg': 'var(--fs-l)',
-                                '2xl': 'var(--fs-xl)',
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    </script>
+    <!-- External Libraries -->
+    <script src="js/vendor/chart.min.js?v=20260411b" defer></script>
 
     <!-- Local Styles -->
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/tailwind.css?v=20260411n">
+    <link rel="stylesheet" href="css/styles.css?v=20260411n">
 </head>
 
 <body
@@ -163,7 +114,7 @@
         <div class="max-w-7xl mx-auto px-6 h-full flex items-center">
             <!-- Left: Logo -->
             <div class="flex items-center gap-2 w-1/4">
-                <img src="assets/AppIcon.png" alt="Logo" class="w-8 h-8 rounded-lg object-contain">
+                <img src="assets/AppIcon.png?v=20260411b" alt="Logo" class="w-8 h-8 rounded-lg object-contain">
                 <div class="flex items-baseline gap-1">
                     <span class="font-bold text-xl tracking-tight text-white leading-none">OpenCode Token Meter</span>
                     <span id="app-version-badge" class="hidden text-[11px] text-black-500 leading-none translate-y-[1px]">v--</span>
@@ -212,12 +163,14 @@
                 <h2 class="text-2xl font-bold text-white">Overview</h2>
                 <div class="flex items-center gap-3">
                     <select id="scope-select"
-                        class="bg-black-800 border border-black-700 text-white text-sm rounded-lg focus:ring-white focus:border-white block p-2.5 outline-none">
+                        class="bg-black-800 border border-black-700 text-white text-sm rounded-lg focus:ring-white focus:border-white block p-2.5 outline-none custom-select-native"
+                        data-custom-select="true" style="display:none">
                         <option value="today">Today</option>
                         <option value="week" selected>Last 7 Days</option>
                         <option value="month">This Month</option>
                         <option value="all">All Time</option>
                     </select>
+                    <div id="scope-select-custom" class="custom-select-root relative" data-select-id="scope-select"></div>
                     <button id="refresh-btn"
                         class="p-2.5 text-black-400 hover:text-white bg-black-800 hover:bg-black-700 border border-black-700 rounded-lg transition-all active:scale-95">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,13 +259,15 @@
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-bold text-white">Usage Trend</h3>
                         <select id="trend-metric"
-                            class="bg-black-900 border border-black-700 text-white text-xs rounded-lg p-1.5 focus:ring-white focus:border-white outline-none">
+                            class="bg-black-900 border border-black-700 text-white text-xs rounded-lg p-1.5 focus:ring-white focus:border-white outline-none custom-select-native"
+                            data-custom-select="true" style="display:none">
                             <option value="cost" selected>Cost</option>
                             <option value="total_tokens">Total Tokens</option>
                             <option value="input_tokens">Input Tokens</option>
                             <option value="output_tokens">Output Tokens</option>
                             <option value="requests">Requests</option>
                         </select>
+                        <div id="trend-metric-custom" class="custom-select-root relative" data-select-id="trend-metric"></div>
                     </div>
                     <div class="chart-container">
                         <canvas id="trend-chart"></canvas>
@@ -324,13 +279,15 @@
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-bold text-white">Distribution</h3>
                         <select id="distribution-metric"
-                            class="bg-black-900 border border-black-700 text-white text-xs rounded-lg p-1.5 focus:ring-white focus:border-white outline-none">
+                            class="bg-black-900 border border-black-700 text-white text-xs rounded-lg p-1.5 focus:ring-white focus:border-white outline-none custom-select-native"
+                            data-custom-select="true" style="display:none">
                             <option value="cost">Cost</option>
                             <option value="total_tokens">Total Tokens</option>
                             <option value="input_tokens">Input Tokens</option>
                             <option value="output_tokens">Output Tokens</option>
                             <option value="requests" selected>Requests</option>
                         </select>
+                        <div id="distribution-metric-custom" class="custom-select-root relative" data-select-id="distribution-metric"></div>
 
                     </div>
                     <div class="chart-container">
@@ -345,7 +302,15 @@
                     <h3 class="text-lg font-bold text-white">Models</h3>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
+                    <table class="w-full text-sm text-left table-fixed">
+                        <colgroup>
+                            <col style="width: 36%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 12%">
+                        </colgroup>
                         <thead class="text-xs text-black-400 uppercase bg-black-900/50">
                             <tr>
                                 <th class="px-6 py-3">Model</th>
@@ -371,13 +336,15 @@
                     <div class="flex items-center gap-4 flex-1 justify-start">
                         <!-- Time Range Select -->
                         <select id="details-time-select"
-                            class="bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white">
+                            class="bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white custom-select-native"
+                            data-custom-select="true" style="display:none">
                             <option value="today">Today</option>
                             <option value="week" selected>Last 7 Days</option>
                             <option value="month">This Month</option>
                             <option value="all">All Time</option>
                             <option value="custom">Custom Range</option>
                         </select>
+                        <div id="details-time-select-custom" class="custom-select-root relative" data-select-id="details-time-select"></div>
 
                         <!-- Custom Date Inputs (Hidden by default) -->
                         <div id="custom-range-inputs" class="flex gap-2 items-center hidden">
@@ -448,7 +415,15 @@
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
+                    <table class="w-full text-sm text-left table-fixed">
+                        <colgroup>
+                            <col style="width: 36%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 12%">
+                        </colgroup>
                         <thead class="text-xs text-black-400 uppercase bg-black-900/50">
                             <tr>
                                 <th class="px-4 py-3">Scope</th>
@@ -509,38 +484,67 @@
                                 <label
                                     class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Timezone</label>
                                 <select id="timezone-select"
-                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white">
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white custom-select-native"
+                                    data-custom-select="true" style="display:none">
                                     <option value="local">Local System Time</option>
                                     <option value="UTC">UTC</option>
-                                    <optgroup label="Asia">
-                                        <option value="Asia/Hong_Kong">Hong Kong</option>
-                                        <option value="Asia/Tokyo">Tokyo</option>
-                                        <option value="Asia/Shanghai">Shanghai</option>
-                                        <option value="Asia/Singapore">Singapore</option>
-                                    </optgroup>
-                                    <optgroup label="America">
-                                        <option value="America/New_York">New York</option>
+                                    <optgroup label="Americas">
+                                        <option value="Pacific/Honolulu">Honolulu</option>
+                                        <option value="America/Anchorage">Anchorage</option>
                                         <option value="America/Los_Angeles">Los Angeles</option>
+                                        <option value="America/Denver">Denver</option>
                                         <option value="America/Chicago">Chicago</option>
+                                        <option value="America/New_York">New York</option>
+                                        <option value="America/Halifax">Halifax</option>
+                                        <option value="America/Sao_Paulo">Sao Paulo</option>
                                     </optgroup>
                                     <optgroup label="Europe">
                                         <option value="Europe/London">London</option>
                                         <option value="Europe/Paris">Paris</option>
                                         <option value="Europe/Berlin">Berlin</option>
+                                        <option value="Europe/Helsinki">Helsinki</option>
+                                        <option value="Europe/Moscow">Moscow</option>
+                                    </optgroup>
+                                    <optgroup label="Africa">
+                                        <option value="Africa/Cairo">Cairo</option>
+                                        <option value="Africa/Johannesburg">Johannesburg</option>
+                                    </optgroup>
+                                    <optgroup label="Middle East">
+                                        <option value="Asia/Dubai">Dubai</option>
+                                    </optgroup>
+                                    <optgroup label="Asia">
+                                        <option value="Asia/Karachi">Karachi</option>
+                                        <option value="Asia/Kolkata">Kolkata</option>
+                                        <option value="Asia/Dhaka">Dhaka</option>
+                                        <option value="Asia/Bangkok">Bangkok</option>
+                                        <option value="Asia/Hong_Kong">Hong Kong</option>
+                                        <option value="Asia/Shanghai">Shanghai</option>
+                                        <option value="Asia/Singapore">Singapore</option>
+                                        <option value="Asia/Seoul">Seoul</option>
+                                        <option value="Asia/Tokyo">Tokyo</option>
+                                    </optgroup>
+                                    <optgroup label="Oceania">
+                                        <option value="Australia/Perth">Perth</option>
+                                        <option value="Australia/Adelaide">Adelaide</option>
+                                        <option value="Australia/Sydney">Sydney</option>
+                                        <option value="Pacific/Auckland">Auckland</option>
                                     </optgroup>
                                 </select>
+                                <div id="timezone-select-custom" class="custom-select-root relative" data-select-id="timezone-select"></div>
                             </div>
                             <div>
                                 <label
                                     class="block text-xs font-bold text-black-400 uppercase tracking-wider mb-2">Default
                                     Time Span</label>
                                 <select id="default-scope-select"
-                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white">
+                                    class="w-full bg-black-900 border border-black-700 text-white text-sm rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-white custom-select-native"
+                                    data-custom-select="true" style="display:none">
                                     <option value="today">Today</option>
                                     <option value="week">Last 7 Days</option>
                                     <option value="month">This Month</option>
                                     <option value="all">All Time</option>
                                 </select>
+                                <div id="default-scope-select-custom" class="custom-select-root relative" data-select-id="default-scope-select"></div>
                             </div>
                         </div>
                     </div>
@@ -610,7 +614,15 @@
                     </button>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
+                    <table class="w-full text-sm text-left table-fixed">
+                        <colgroup>
+                            <col style="width: 36%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 13%">
+                            <col style="width: 12%">
+                        </colgroup>
                         <thead class="text-xs text-black-400 uppercase bg-black-900/50">
                             <tr>
                                 <th class="px-4 py-3">Model</th>
@@ -644,14 +656,15 @@
 
 
     <!-- Scripts -->
-    <script src="js/dialog.js?v=20250315d"></script>
-    <script src="js/api.js?v=20250315d"></script>
-    <script src="js/font_scale.js?v=20250315d"></script>
-    <script src="js/charts.js?v=20250315d"></script>
-    <script src="js/dashboard.js?v=20250315d"></script>
-    <script src="js/settings.js?v=20250315d"></script>
-    <script src="js/details.js?v=20250315d"></script>
-    <script src="js/app.js?v=20250315d"></script>
+    <script src="js/dialog.js?v=20260411b"></script>
+    <script src="js/api.js?v=20260411b"></script>
+    <script src="js/font_scale.js?v=20260411b"></script>
+    <script src="js/charts.js?v=20260411h"></script>
+    <script src="js/dashboard.js?v=20260411i"></script>
+    <script src="js/select.js?v=20260411m"></script>
+    <script src="js/settings.js?v=20260411i"></script>
+    <script src="js/details.js?v=20260411i"></script>
+    <script src="js/app.js?v=20260411i"></script>
     <!-- Custom Tooltip -->
     <div id="custom-tooltip"
         class="fixed hidden z-50 bg-black-800 border border-black-600 text-white text-xs px-3 py-2 rounded shadow-xl pointer-events-none transition-opacity duration-150 transform -translate-y-full -translate-x-1/2 mt-[-10px]">

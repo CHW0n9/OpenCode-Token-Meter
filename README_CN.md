@@ -53,7 +53,7 @@
 
 ```bash
 # Windows
-pip install pyinstaller pywebview pystray pillow pyperclip win10toast
+pip install "setuptools<81" pyinstaller pywebview pystray pillow pyperclip win10toast
 
 # macOS
 pip install pyinstaller pywebview rumps pillow pyperclip pyobjc-framework-Cocoa
