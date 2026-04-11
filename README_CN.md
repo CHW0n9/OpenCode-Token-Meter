@@ -5,7 +5,7 @@
   </a>
 </p>
 
-**OpenCode Token 计量器** 是一个轻量级的 macOS/Windows 菜单栏应用，使用 Python 和 pywebview 构建，用于监控 [OpenCode](https://opencode.ai) 的 Token 使用量、成本和分析数据。
+**OpenCode Token 计量器** 是一个轻量级的 macOS/Windows/Linux 托盘应用，使用 Python 和 pywebview 构建，用于监控 [OpenCode](https://opencode.ai) 的 Token 使用量、成本和分析数据。
 
 ![Dashboard Screenshot](assets/Screenshot_dashboard.png)
 
@@ -22,7 +22,7 @@
 - **📥 数据导出** - 支持将自定义日期范围的使用数据导出为 CSV 或复制到剪贴板。
 - **🔄 现代架构** - 后台代理和统计工作进程作为嵌入式线程在单个进程内运行。
 - **🔐 隐私保护** - 所有数据存储在本地 SQLite 数据库中，并配有强大的去重逻辑。
-- **💻 跨平台支持** - 为 macOS（菜单栏）和 Windows（系统托盘）提供原生体验。
+- **💻 跨平台支持** - 为 macOS（菜单栏）、Windows（系统托盘）和 Linux（系统托盘）提供原生体验。
 
 ---
 
@@ -31,13 +31,17 @@
 ### 选项 1：预构建二进制文件（推荐）
 
 #### Windows
-1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter-1.1.1.exe`。
+1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter.exe`。
 2. 运行可执行文件即可启动应用。应用将出现在系统托盘中。
 
 #### macOS
-1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter-1.1.1.dmg`。
+1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter.dmg`。
 2. 将 "OpenCode Token Meter.app" 拖入您的应用程序 (Applications) 文件夹。
 3. **安全说明**：由于应用未签名，首次启动时您可能需要在 **系统设置 → 隐私与安全** 中点击 **“仍要打开”**。
+
+#### Linux
+1. 从 [GitHub Releases](https://github.com/chw0n9/opencode-token-meter/releases) 下载 `OpenCodeTokenMeter.deb。
+2. 安装 `.deb` 包。 **注意**：在 GNOME 上需要启用 AppIndicator 扩展，托盘图标才会显示。
 
 ---
 
@@ -45,14 +49,17 @@
 
 #### 依赖要求
 - Python 3.9+
-- 推荐使用：Conda 环境 `opencode`。
+- 推荐使用：venv。
 
 ```bash
 # Windows
-pip install pyinstaller pywebview pystray pillow pyperclip win10toast
+pip install "setuptools<81" pyinstaller pywebview pystray pillow pyperclip win10toast
 
 # macOS
 pip install pyinstaller pywebview rumps pillow pyperclip pyobjc-framework-Cocoa
+
+# Linux
+pip install pyinstaller pywebview pillow pyperclip
 ```
 
 #### 构建命令
@@ -69,6 +76,12 @@ pip install pyinstaller pywebview rumps pillow pyperclip pyobjc-framework-Cocoa
 ./build.sh
 ```
 输出：`dist/OpenCode Token Meter.app` 和 `.dmg`
+
+**Linux:**
+```bash
+./build_linux.sh
+```
+输出：`dist/OpenCode Token Meter` 和 `dist/opencode-token-meter_<version>_<arch>.deb`
 
 ---
 
@@ -107,6 +120,7 @@ opencode-token-meter/
 - **数据库位置**：
   - macOS: `~/Library/Application Support/OpenCode Token Meter/index.db`
   - Windows: `%APPDATA%\OpenCode Token Meter\index.db`
+  - Linux: `~/.local/share/OpenCode Token Meter/index.db`
 - **模型定价**：在 **设置 → 成本计量** 中覆盖默认定价。支持输入、输出、缓存和单次请求定价。
 
 ---

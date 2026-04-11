@@ -7,6 +7,9 @@ class Dashboard {
         this.currentDetailsView = 'all'; // 'all' | 'provider' | 'model'
         this.refreshTimer = null;
         this.refreshInterval = 5; // Fixed 5s
+        this.lastLoadedAt = 0;
+        this.lastUpdateTs = 0;
+        this.activeLoadCount = 0;
     }
 
     async init() {
@@ -19,6 +22,9 @@ class Dashboard {
             const scopeSelect = document.getElementById('scope-select');
             if (scopeSelect) {
                 scopeSelect.value = this.currentScope;
+                if (window.customSelectManager) {
+                    window.customSelectManager.sync('scope-select');
+                }
             }
         } else {
             const scopeSelect = document.getElementById('scope-select');
@@ -79,20 +85,18 @@ class Dashboard {
         // This is lightweight. If update needed, we load stats.
         console.log(`[Dashboard] Starting smart polling (5s check)`);
 
-        let lastTs = 0;
-
         // Initial sync of timestamp
         const initCheck = await window.api.checkUpdates(0);
         if (initCheck.success && initCheck.data) {
-            lastTs = initCheck.data.ts;
+            this.lastUpdateTs = initCheck.data.ts || 0;
         }
 
         this.refreshTimer = setInterval(async () => {
             try {
-                const check = await window.api.checkUpdates(lastTs);
+                const check = await window.api.checkUpdates(this.lastUpdateTs || 0);
                 if (check.success && check.data.needed) {
                     console.log('[Dashboard] Update detected, reloading stats...');
-                    lastTs = check.data.ts;
+                    this.lastUpdateTs = check.data.ts || this.lastUpdateTs;
                     await this.loadStats();
                 }
             } catch (e) {
@@ -104,39 +108,46 @@ class Dashboard {
     async loadStats(scope = null) {
         if (scope) this.currentScope = scope;
 
-        const [result, modelResult] = await Promise.all([
-            window.api.getStats(this.currentScope),
-            window.api.getStatsByModel(this.currentScope)
-        ]);
+        this.activeLoadCount += 1;
 
-        if (result.success) {
-            this.stats = result.data;
+        try {
+            const [result, modelResult] = await Promise.all([
+                window.api.getStats(this.currentScope),
+                window.api.getStatsByModel(this.currentScope)
+            ]);
 
-            // Build providers array from model breakdown
-            this.stats.providers = [];
-            if (modelResult.success && modelResult.data) {
-                for (const [providerName, models] of Object.entries(modelResult.data)) {
-                    for (const [modelName, stats] of Object.entries(models)) {
-                        this.stats.providers.push({
-                            name: providerName,
-                            model: modelName,
-                            input: stats.input || 0,
-                            output: (stats.output || 0) + (stats.reasoning || 0),
-                            requests: stats.requests || 0,
-                            cost: stats.cost || 0
-                        });
+            if (result.success) {
+                this.stats = result.data;
+
+                // Build providers array from model breakdown
+                this.stats.providers = [];
+                if (modelResult.success && modelResult.data) {
+                    for (const [providerName, models] of Object.entries(modelResult.data)) {
+                        for (const [modelName, stats] of Object.entries(models)) {
+                            this.stats.providers.push({
+                                name: providerName,
+                                model: modelName,
+                                input: stats.input || 0,
+                                output: (stats.output || 0) + (stats.reasoning || 0),
+                                requests: stats.requests || 0,
+                                cost: stats.cost || 0
+                            });
+                        }
                     }
                 }
-            }
 
-            this.render();
-            this.updateLastRefresh();
-            await this.loadThresholds();
-        } else {
-            console.error('Failed to load stats:', result.error);
-            this.stats = null;
-            this.renderEmpty();
-            await this.loadThresholds();
+                this.render();
+                this.updateLastRefresh();
+                await this.loadThresholds();
+            } else {
+                console.error('Failed to load stats:', result.error);
+                this.stats = null;
+                this.renderEmpty();
+                await this.loadThresholds();
+            }
+        } finally {
+            this.activeLoadCount = Math.max(0, this.activeLoadCount - 1);
+            this.lastLoadedAt = Date.now();
         }
     }
 
@@ -411,16 +422,21 @@ class Dashboard {
             return;
         }
         const data = result.data;
-        this.setThresholdVisibility(!!data.enabled);
-        if (!data.enabled) return;
+        this.setThresholdVisibility(true, !!data.enabled);
         this.updateThresholdBars(data);
     }
 
-    setThresholdVisibility(enabled) {
+    setThresholdVisibility(visible, enabled = true) {
         const tokenCard = document.getElementById('card-token-threshold');
         const costCard = document.getElementById('card-cost-threshold');
-        if (tokenCard) tokenCard.classList.toggle('hidden', !enabled);
-        if (costCard) costCard.classList.toggle('hidden', !enabled);
+        if (tokenCard) {
+            tokenCard.classList.toggle('hidden', !visible);
+            tokenCard.classList.toggle('opacity-60', visible && !enabled);
+        }
+        if (costCard) {
+            costCard.classList.toggle('hidden', !visible);
+            costCard.classList.toggle('opacity-60', visible && !enabled);
+        }
     }
 
     updateThresholdBars(data) {

@@ -16,6 +16,9 @@ class DetailsManager {
         const timeSelect = document.getElementById('details-time-select');
         if (timeSelect) {
             timeSelect.value = this.currentScope;
+            if (window.customSelectManager) {
+                window.customSelectManager.sync('details-time-select');
+            }
         }
 
         this.setupEventListeners();
@@ -127,9 +130,10 @@ class DetailsManager {
         const timeSelect = document.getElementById('details-time-select');
         if (timeSelect) {
             timeSelect.addEventListener('change', (e) => {
+                const newScope = e.target.value;
                 const customInputs = document.getElementById('custom-range-inputs');
                 const confirmBtn = document.getElementById('custom-range-confirm-btn');
-                if (e.target.value === 'custom') {
+                if (newScope === 'custom') {
                     customInputs.classList.remove('hidden');
                     this.initializeCustomRange();
                     // Show confirm button immediately when switching to custom
@@ -138,6 +142,18 @@ class DetailsManager {
                     customInputs.classList.add('hidden');
                     if (confirmBtn) confirmBtn.classList.add('hidden');
                     this.loadDetails(); // // Only auto-load for non-custom options
+                    
+                    // Sync to dashboard
+                    const dashboardSelect = document.getElementById('scope-select');
+                    if (dashboardSelect && dashboardSelect.value !== newScope) {
+                        dashboardSelect.value = newScope;
+                        if (window.customSelectManager) {
+                            window.customSelectManager.sync('scope-select');
+                        }
+                        if (window.dashboard) {
+                            window.dashboard.loadStats(newScope);
+                        }
+                    }
                 }
             });
         }

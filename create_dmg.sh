@@ -11,7 +11,7 @@ VERSION_FILE="$(cd "$(dirname "$0")" && pwd)/VERSION"
 if [ -f "$VERSION_FILE" ]; then
     VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
 else
-    VERSION="1.1.1"  # Fallback version
+    VERSION="1.1.3"  # Fallback version
 fi
 
 DMG_NAME="OpenCodeTokenMeter-${VERSION}"

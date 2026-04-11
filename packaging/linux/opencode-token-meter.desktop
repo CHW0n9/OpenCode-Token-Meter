@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=OpenCode Token Meter
+Comment=Track OpenCode token usage
+Exec=/usr/bin/opencode-token-meter
+Icon=opencode-token-meter
+Terminal=false
+Categories=Utility;Development;
+StartupNotify=false

@@ -92,7 +92,7 @@ class TrayManager:
 
     def get_menu(self):
         return Menu(
-            MenuItem(self._item_text("today_header"), self._noop, enabled=True, default=True),
+            MenuItem(self._item_text("today_header"), self._noop, enabled=True),
             MenuItem(self._item_text("today_row1"), self._noop, enabled=True),
             MenuItem(self._item_text("today_row2"), self._noop, enabled=True),
             MenuItem(self._item_text("today_row3"), self._noop, enabled=True),
@@ -102,7 +102,7 @@ class TrayManager:
             MenuItem(self._item_text("month_row2"), self._noop, enabled=True),
             MenuItem(self._item_text("month_row3"), self._noop, enabled=True),
             Menu.SEPARATOR,
-            MenuItem("Open Main Window", self._on_show_window),
+            MenuItem("Open Main Window", self._on_show_window, default=True),
             MenuItem("Quit", self._on_quit)
         )
 
