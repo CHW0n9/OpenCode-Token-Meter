@@ -4,10 +4,11 @@
 set -e
 
 APP_NAME="OpenCode Token Meter"
-APP_PATH="dist/${APP_NAME}.app"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+APP_PATH="$ROOT_DIR/dist/${APP_NAME}.app"
 
 # Read version from VERSION file
-VERSION_FILE="$(cd "$(dirname "$0")" && pwd)/VERSION"
+VERSION_FILE="$ROOT_DIR/VERSION"
 if [ -f "$VERSION_FILE" ]; then
     VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
 else
@@ -15,9 +16,9 @@ else
 fi
 
 DMG_NAME="OpenCodeTokenMeter-${VERSION}"
-DMG_PATH="build/${DMG_NAME}.dmg"
+DMG_PATH="$ROOT_DIR/build/${DMG_NAME}.dmg"
 VOLUME_NAME="OpenCode Token Meter"
-TMP_DMG="build/tmp.dmg"
+TMP_DMG="$ROOT_DIR/build/tmp.dmg"
 
 # Check if app exists
 if [ ! -d "$APP_PATH" ]; then
@@ -26,7 +27,7 @@ if [ ! -d "$APP_PATH" ]; then
 fi
 
 # Create build directory
-mkdir -p build
+mkdir -p "$ROOT_DIR/build"
 
 # Remove old DMG if exists
 rm -f "$DMG_PATH" "$TMP_DMG"

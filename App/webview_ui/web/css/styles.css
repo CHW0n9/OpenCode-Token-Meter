@@ -1,10 +1,61 @@
 /* Base Styles - Black/White Monochrome Theme */
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;900&display=swap');
 
+:root {
+    /* Tailwind black scale (single source for utility palette) */
+    --color-black-100: #f5f5f5;
+    --color-black-100-rgb: 245 245 245;
+    --color-black-200: #e5e5e5;
+    --color-black-200-rgb: 229 229 229;
+    --color-black-300: #d4d4d4;
+    --color-black-300-rgb: 212 212 212;
+    --color-black-400: #a3a3a3;
+    --color-black-400-rgb: 163 163 163;
+    --color-black-500: #737373;
+    --color-black-500-rgb: 115 115 115;
+    --color-black-600: #525252;
+    --color-black-600-rgb: 82 82 82;
+    --color-black-700: #404040;
+    --color-black-700-rgb: 64 64 64;
+    --color-black-800: #262626;
+    --color-black-800-rgb: 38 38 38;
+    --color-black-900: #171717;
+    --color-black-900-rgb: 23 23 23;
+    --color-black-950: #0a0a0a;
+    --color-black-950-rgb: 10 10 10;
+
+    /* App semantic tokens */
+    --color-bg-base: #000000;
+    --color-bg-canvas: var(--color-black-950);
+    --color-bg-input: #111111;
+    --color-bg-panel: #1a1a1a;
+    --color-bg-panel-hover: #202020;
+    --color-bg-button: #222222;
+    --color-bg-card: var(--color-black-800);
+    --color-bg-strong: var(--color-black-700);
+    --color-bg-strong-hover: var(--color-black-600);
+
+    --color-border-base: #333333;
+    --color-border-focus: #555555;
+    --color-border-muted: var(--color-black-700);
+    --color-border-strong: var(--color-black-600);
+
+    --color-text-primary: #ffffff;
+    --color-text-secondary: var(--color-black-400);
+    --color-text-muted: #888888;
+    --color-text-subtle: #666666;
+
+    --color-overlay-white-06: rgba(255, 255, 255, 0.06);
+    --color-overlay-white-08: rgba(255, 255, 255, 0.08);
+    --color-shadow-focus-strong: rgba(255, 255, 255, 0.2);
+    --color-shadow-focus-soft: rgba(255, 255, 255, 0.15);
+    --color-icon-dim: rgba(255, 255, 255, 0.72);
+}
+
 html,
 body {
-    background-color: #000000 !important;
-    background: #000000 !important;
+    background-color: var(--color-bg-base) !important;
+    background: var(--color-bg-base) !important;
     margin: 0 !important;
     padding: 0 !important;
 }
@@ -13,8 +64,8 @@ body {
     font-family: 'Lato', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: #000000;
-    color: #ffffff;
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
     color-scheme: dark;
     overflow-x: hidden;
     font-size: var(--fs-base);
@@ -25,20 +76,20 @@ body {
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
-    background: #000000;
+    background: var(--color-bg-base);
 }
 
 ::-webkit-scrollbar-track {
-    background: #000000;
+    background: var(--color-bg-base);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #333333;
+    background: var(--color-border-base);
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #555555;
+    background: var(--color-border-focus);
 }
 
 /* Animations */
@@ -75,9 +126,9 @@ input[type="date"],
 select,
 textarea {
     transition: border-color 0.2s, box-shadow 0.2s;
-    background-color: #111111;
-    border: 1px solid #333333;
-    color: #ffffff;
+    background-color: var(--color-bg-input);
+    border: 1px solid var(--color-border-base);
+    color: var(--color-text-primary);
 }
 
 input[type="text"]:focus,
@@ -86,8 +137,8 @@ input[type="date"]:focus,
 select:focus,
 textarea:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
-    border-color: #555555;
+    box-shadow: 0 0 0 2px var(--color-shadow-focus-strong);
+    border-color: var(--color-border-focus);
 }
 
 /* Select Dropdown Styling */
@@ -96,9 +147,9 @@ select {
     -webkit-appearance: none;
     -moz-appearance: none;
     color-scheme: dark;
-    background-color: #111111;
-    color: #ffffff;
-    border: 1px solid #333333;
+    background-color: var(--color-bg-input);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-base);
     border-radius: 6px;
     padding: 0.625rem 2.5rem 0.625rem 0.875rem;
     font-size: var(--fs-base);
@@ -112,20 +163,20 @@ select {
 }
 
 select:hover {
-    border-color: #555555;
-    background-color: #1a1a1a;
+    border-color: var(--color-border-focus);
+    background-color: var(--color-bg-panel);
 }
 
 select:focus {
-    border-color: #ffffff;
-    background-color: #1a1a1a;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+    border-color: var(--color-text-primary);
+    background-color: var(--color-bg-panel);
+    box-shadow: 0 0 0 2px var(--color-shadow-focus-soft);
 }
 
 /* Dropdown options */
 select option {
-    background-color: #111111;
-    color: #ffffff;
+    background-color: var(--color-bg-input);
+    color: var(--color-text-primary);
     padding: 0.625rem;
     font-size: var(--fs-base);
 }
@@ -134,14 +185,14 @@ select option:hover,
 select option:focus,
 select option:active,
 select option:checked {
-    background-color: #333333;
-    color: #ffffff;
+    background-color: var(--color-border-base);
+    color: var(--color-text-primary);
 }
 
 /* Firefox specific */
 select:-moz-focusring {
     color: transparent;
-    text-shadow: 0 0 0 #ffffff;
+    text-shadow: 0 0 0 var(--color-text-primary);
 }
 
 .custom-select-native {
@@ -155,9 +206,9 @@ select:-moz-focusring {
 }
 
 .custom-select-trigger {
-    background-color: #111111 !important;
-    border: 1px solid #333333 !important;
-    color: #ffffff !important;
+    background-color: var(--color-bg-panel) !important;
+    border: 1px solid var(--color-border-muted) !important;
+    color: var(--color-text-primary) !important;
     cursor: pointer;
     user-select: none;
     appearance: none !important;
@@ -171,8 +222,8 @@ main, main * {
 }
 
 .custom-select-trigger:hover {
-    background-color: #1a1a1a !important;
-    border-color: #555555 !important;
+    background-color: var(--color-bg-panel-hover) !important;
+    border-color: var(--color-border-strong) !important;
 }
 
 .custom-select-root[data-open="true"] .custom-select-chevron {
@@ -181,11 +232,22 @@ main, main * {
 
 .custom-select-menu {
     position: fixed !important;
-    background-color: #111111 !important;
-    border: 1px solid #333333 !important;
+    background-color: var(--color-bg-panel) !important;
+    border: 1px solid var(--color-border-muted) !important;
     will-change: transform, opacity;
     transform: translateZ(0);
     contain: layout paint;
+}
+
+/* Dashboard scope dropdown follows card/button tone */
+#scope-select-custom .custom-select-trigger {
+    background-color: var(--color-bg-card) !important;
+    border-color: var(--color-border-muted) !important;
+}
+
+#scope-select-custom .custom-select-trigger:hover {
+    background-color: var(--color-bg-strong) !important;
+    border-color: var(--color-border-strong) !important;
 }
 
 .custom-select-options {
@@ -195,7 +257,7 @@ main, main * {
 .custom-select-option {
     background: transparent !important;
     border: 0 !important;
-    color: #a3a3a3 !important;
+    color: var(--color-text-secondary) !important;
     cursor: pointer;
     user-select: none;
     appearance: none !important;
@@ -205,17 +267,94 @@ main, main * {
 
 .custom-select-option:hover,
 .custom-select-option:focus {
-    background: rgba(255, 255, 255, 0.06) !important;
-    color: #ffffff !important;
+    background: var(--color-overlay-white-06) !important;
+    color: var(--color-text-primary) !important;
 }
 
 .custom-select-option.text-white {
-    color: #ffffff !important;
-    background: rgba(255, 255, 255, 0.08) !important;
+    color: var(--color-text-primary) !important;
+    background: var(--color-overlay-white-08) !important;
 }
 
 .custom-select-option-indented {
     padding-left: 1.75rem !important;
+}
+
+.threshold-token-field {
+    position: relative;
+    --threshold-unit-right: 0.5rem;
+    --threshold-unit-width: 3rem;
+    --threshold-gap: 0.2rem;
+    --threshold-x-width: 0.9rem;
+    --threshold-times-nudge-y: 0.5px;
+}
+
+.threshold-token-input {
+    padding-right: calc(
+        var(--threshold-unit-right) +
+        var(--threshold-unit-width) +
+        var(--threshold-gap) +
+        var(--threshold-x-width) +
+        var(--threshold-gap)
+    ) !important;
+}
+
+.threshold-token-times {
+    position: absolute;
+    right: calc(
+        var(--threshold-unit-right) +
+        var(--threshold-unit-width) +
+        var(--threshold-gap)
+    );
+    width: var(--threshold-x-width);
+    top: 50%;
+    transform: translateY(calc(-50% + var(--threshold-times-nudge-y)));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 500;
+    pointer-events: none;
+    user-select: none;
+}
+
+.threshold-token-unit {
+    position: absolute;
+    right: var(--threshold-unit-right);
+    top: 50%;
+    transform: translateY(-50%);
+    width: var(--threshold-unit-width);
+    min-width: var(--threshold-unit-width);
+    max-width: var(--threshold-unit-width);
+    height: 1.6rem;
+    padding: 0 0.95rem 0rem 0.2rem;
+    text-align: left;
+    text-align-last: left;
+    border: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1.5 1.25L6 5.75L10.5 1.25' stroke='%23E5E7EB' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-size: 0.75rem 0.5rem !important;
+    background-position: right 0.6rem center !important;
+    cursor: pointer;
+}
+
+.threshold-token-unit:focus,
+.threshold-token-unit:hover {
+    border: 0 !important;
+    box-shadow: none !important;
+    background-color: var(--color-bg-panel) !important;
+}
+
+.threshold-token-unit option {
+    text-align: center;
 }
 
 .pricing-step-btn {
@@ -223,7 +362,7 @@ main, main * {
     border: 0 !important;
     box-shadow: none !important;
     padding: 0 !important;
-    color: rgba(255, 255, 255, 0.72) !important;
+    color: var(--color-icon-dim) !important;
     width: 11px !important;
     height: 11px !important;
     min-width: 11px !important;
@@ -252,20 +391,20 @@ main, main * {
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
-    color: #ffffff !important;
+    color: var(--color-text-primary) !important;
 }
 
 /* Buttons */
 button {
     transition: all 0.2s;
-    background-color: #222222;
-    border: 1px solid #333333;
-    color: #ffffff;
+    background-color: var(--color-bg-button);
+    border: 1px solid var(--color-border-base);
+    color: var(--color-text-primary);
 }
 
 button:hover {
-    background-color: #333333;
-    border-color: #555555;
+    background-color: var(--color-border-base);
+    border-color: var(--color-border-focus);
 }
 
 button:active {
@@ -275,6 +414,12 @@ button:active {
 /* Table Styles */
 table {
     border-collapse: collapse;
+}
+
+/* Remove horizontal separators between table rows */
+table tr {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
 }
 
 th,
@@ -289,23 +434,64 @@ th {
 
 /* Card/Container Styles */
 .bg-black-950 {
-    background-color: #0a0a0a !important;
+    background-color: var(--color-bg-canvas) !important;
 }
 
-.bg-black-800,
 .bg-black-900 {
-    background-color: #111111;
-    border: 1px solid #222222;
+    background-color: var(--color-bg-panel);
+    border: 1px solid var(--color-border-muted);
+}
+
+.bg-black-800 {
+    background-color: var(--color-bg-card);
+    border: 1px solid var(--color-border-muted);
 }
 
 .bg-black-700 {
-    background-color: #1a1a1a;
-    border: 1px solid #333333;
+    background-color: var(--color-bg-strong);
+    border: 1px solid var(--color-border-strong);
+}
+
+/* Explicit opacity shades used by table hierarchy rows and hovers */
+.bg-black-950\/20 {
+    background-color: rgb(var(--color-black-950-rgb) / 0.2) !important;
+}
+
+.bg-black-900\/30 {
+    background-color: rgb(var(--color-black-900-rgb) / 0.3) !important;
+}
+
+.bg-black-900\/50 {
+    background-color: rgb(var(--color-black-900-rgb) / 0.5) !important;
+}
+
+.bg-black-900\/70 {
+    background-color: rgb(var(--color-black-900-rgb) / 0.7) !important;
+}
+
+.bg-black-800\/80 {
+    background-color: rgb(var(--color-black-800-rgb) / 0.8) !important;
+}
+
+.hover\:bg-black-800\/50:hover {
+    background-color: rgb(var(--color-black-800-rgb) / 0.5) !important;
+}
+
+.hover\:bg-black-700\/30:hover {
+    background-color: rgb(var(--color-black-700-rgb) / 0.3) !important;
+}
+
+.hover\:bg-black-700\/20:hover {
+    background-color: rgb(var(--color-black-700-rgb) / 0.2) !important;
+}
+
+.hover\:bg-black-700\/10:hover {
+    background-color: rgb(var(--color-black-700-rgb) / 0.1) !important;
 }
 
 .border-black-700,
 .border-black-800 {
-    border-color: #333333;
+    border-color: var(--color-border-muted);
 }
 
 /* Unified font sizes globally */
@@ -339,11 +525,11 @@ button {
 
 /* Text colors - use white and gray */
 .text-black-400 {
-    color: #888888;
+    color: var(--color-text-muted);
 }
 
 .text-black-500 {
-    color: #666666;
+    color: var(--color-text-subtle);
 }
 
 /* Chart Container */
@@ -370,28 +556,28 @@ button {
 }
 
 .nav-tab.text-white {
-    background: #222222;
-    border-color: #444444;
+    background: var(--color-bg-card);
+    border: 0 !important;
 }
 
 .nav-tab:hover:not(.text-white) {
-    background: #1a1a1a;
+    background: var(--color-bg-panel-hover);
 }
 
 /* Details mode tabs (match top banner tab style) */
 .details-view-btn {
-    background: transparent !important;
-    border: 1px solid transparent !important;
+    background: var(--color-bg-panel) !important;
+    border: 0 !important;
 }
 
 .details-view-btn.text-white {
-    background: #222222 !important;
-    border-color: #444444 !important;
+    background: var(--color-bg-card) !important;
+    border: 0 !important;
 }
 
 .details-view-btn:hover:not(.text-white) {
-    background: #1a1a1a !important;
-    border-color: transparent !important;
+    background: var(--color-bg-panel-hover) !important;
+    border: 0 !important;
 }
 
 input[type="number"]::-webkit-outer-spin-button,

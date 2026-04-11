@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
+SPEC_FILE="$ROOT_DIR/packaging/OpenCodeTokenMeter.spec"
 
 # Colors
 GREEN='\033[0;32m'
@@ -31,10 +32,10 @@ echo -e "\n${BLUE}[1/4] Checking dependencies...${NC}"
 "$PYTHON" -m pip install --quiet --user --upgrade pyinstaller pywebview pystray pillow pyperclip rumps pyobjc-framework-Cocoa 2>/dev/null || true
 echo -e " - Dependencies OK"
 
-# Clean previous builds
+# Clean previous builds (optional - skip to preserve old builds)
 echo -e "\n${BLUE}[2/4] Cleaning previous builds...${NC}"
-rm -rf "$BUILD_DIR" dist build
-echo -e " - Cleaned"
+# rm -rf "$BUILD_DIR" dist build
+echo -e " - Skipped (preserved existing builds)"
 
 # Build using unified spec file
 echo -e "\n${BLUE}[3/4] Building application...${NC}"
@@ -42,7 +43,7 @@ cd "$ROOT_DIR"
 
 # Run PyInstaller in background and show spinner
 TEMP_LOG=$(mktemp)
-"$PYTHON" -m PyInstaller --clean --noconfirm --log-level=ERROR OpenCodeTokenMeter.spec > "$TEMP_LOG" 2>&1 &
+"$PYTHON" -m PyInstaller --clean --noconfirm --log-level=ERROR "$SPEC_FILE" > "$TEMP_LOG" 2>&1 &
 PID=$!
 
 # Spinner
@@ -80,7 +81,7 @@ APP_SIZE=$(du -sh "$APP_BUNDLE" | cut -f1 | xargs)
 echo -e " - App Bundle: ${GREEN}${APP_SIZE}${NC}"
 
 # Create DMG installer (optional)
-DMG_SCRIPT="$ROOT_DIR/create_dmg.sh"
+DMG_SCRIPT="$ROOT_DIR/packaging/create_dmg.sh"
 if [ -f "$DMG_SCRIPT" ]; then
   echo -e "\n${BLUE}[4/4] Creating DMG installer...${NC}"
   

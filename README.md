@@ -63,23 +63,23 @@ pip install pyinstaller pywebview pillow pyperclip
 ```
 
 #### Build Commands
-This project uses a **single unified spec file** (`OpenCodeTokenMeter.spec`) with automatic platform detection.
+This project uses a **single unified spec file** (`packaging/OpenCodeTokenMeter.spec`) with automatic platform detection.
 
 **Windows:**
 ```powershell
-.\build_windows.bat
+.\packaging\build_windows.bat
 ```
 Output: `dist\OpenCodeTokenMeter.exe`
 
 **macOS:**
 ```bash
-./build.sh
+./packaging/build_mac.sh
 ```
 Output: `dist/OpenCode Token Meter.app` and `.dmg`
 
 **Linux:**
 ```bash
-./build_linux.sh
+./packaging/build_linux.sh
 ```
 Output: `dist/OpenCode Token Meter` and `dist/opencode-token-meter_<version>_<arch>.deb`
 
@@ -97,9 +97,12 @@ opencode-token-meter/
 │   ├── CHANGELOG.md             # Version History
 │   └── AGENTS.md                # Developer Guide
 ├── 🔨 Build System
-│   ├── OpenCodeTokenMeter.spec   # Unified PyInstaller configuration
-│   ├── build.sh                 # macOS build script
-│   └── build_windows.bat        # Windows build script
+│   └── packaging/               # Build scripts and spec
+│       ├── OpenCodeTokenMeter.spec   # Unified PyInstaller configuration
+│       ├── build_mac.sh             # macOS build script
+│       ├── build_linux.sh           # Linux build script
+│       ├── build_windows.bat        # Windows build script
+│       └── create_dmg.sh            # macOS DMG script
 └── 📁 App/                      # Source Code
     ├── agent/                   # Message tracking & DB logic (Agent, Stats Worker)
     └── webview_ui/              # Web-based Frontend (pywebview)

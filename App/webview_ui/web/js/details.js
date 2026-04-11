@@ -106,11 +106,11 @@ class DetailsManager {
         // Update button states
         document.querySelectorAll('.details-view-btn').forEach(btn => {
             if (btn.dataset.mode === mode) {
-                btn.classList.add('bg-black-700', 'text-white');
-                btn.classList.remove('text-black-400');
+                btn.classList.add('bg-black-800', 'text-white');
+                btn.classList.remove('bg-black-900', 'text-black-400');
             } else {
-                btn.classList.remove('bg-black-700', 'text-white');
-                btn.classList.add('text-black-400');
+                btn.classList.remove('bg-black-800', 'text-white');
+                btn.classList.add('bg-black-900', 'text-black-400');
             }
         });
 

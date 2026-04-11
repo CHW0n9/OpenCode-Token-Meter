@@ -7,16 +7,16 @@ module.exports = {
     extend: {
       colors: {
         black: {
-          100: '#f5f5f5',
-          200: '#e5e5e5',
-          300: '#d4d4d4',
-          400: '#a3a3a3',
-          500: '#737373',
-          600: '#525252',
-          700: '#404040',
-          800: '#262626',
-          900: '#171717',
-          950: '#0a0a0a',
+          100: 'rgb(var(--color-black-100-rgb) / <alpha-value>)',
+          200: 'rgb(var(--color-black-200-rgb) / <alpha-value>)',
+          300: 'rgb(var(--color-black-300-rgb) / <alpha-value>)',
+          400: 'rgb(var(--color-black-400-rgb) / <alpha-value>)',
+          500: 'rgb(var(--color-black-500-rgb) / <alpha-value>)',
+          600: 'rgb(var(--color-black-600-rgb) / <alpha-value>)',
+          700: 'rgb(var(--color-black-700-rgb) / <alpha-value>)',
+          800: 'rgb(var(--color-black-800-rgb) / <alpha-value>)',
+          900: 'rgb(var(--color-black-900-rgb) / <alpha-value>)',
+          950: 'rgb(var(--color-black-950-rgb) / <alpha-value>)',
         },
       },
       fontFamily: {

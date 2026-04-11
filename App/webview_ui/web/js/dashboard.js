@@ -315,7 +315,7 @@ class Dashboard {
         if (providers.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="px-6 py-8 text-center text-black-400">
+                    <td colspan="5" class="px-4 py-8 text-center text-black-400">
                         No data available
                     </td>
                 </tr>
@@ -356,25 +356,25 @@ class Dashboard {
             }
 
             const tr = document.createElement('tr');
-            tr.className = 'border-b border-black-700 hover:bg-black-800/50 transition-colors';
+            tr.className = 'hover:bg-black-800/50 transition-colors';
 
             const showProvider = p.name !== lastProvider;
 
             tr.innerHTML = `
-                <td class="px-6 py-4 font-bold text-white">
+                <td class="px-4 py-4 font-bold text-white">
                     ${showProvider ? this.escapeHtml(p.name) : ''}
                 </td>
-                <td class="px-6 py-4 text-white">
+                <td class="px-4 py-4 text-white">
                     ${this.escapeHtml(p.model)}
                 </td>
-                <td class="px-6 py-4 text-black-300">
+                <td class="px-4 py-4 text-black-300">
                     <span class="text-black-500">In:</span> ${window.formatCompactNumber(p.input)}
                     <span class="text-black-500 ml-2">Out:</span> ${window.formatCompactNumber(p.output)}
                 </td>
-                <td class="px-6 py-4 text-right text-black-300">
+                <td class="px-4 py-4 text-right text-black-300">
                     ${window.formatCompactNumber(p.requests)}
                 </td>
-                <td class="px-6 py-4 text-right font-medium text-white">
+                <td class="px-4 py-4 text-right font-medium text-white">
                     ${this.formatCurrency(p.cost)}
                 </td>
             `;
@@ -514,11 +514,11 @@ class Dashboard {
         document.querySelectorAll('.details-view-btn').forEach(btn => {
             const mode = btn.dataset.mode;
             if (mode === this.currentDetailsView) {
-                btn.classList.add('bg-black-700', 'text-white');
-                btn.classList.remove('text-black-400');
+                btn.classList.add('bg-black-800', 'text-white');
+                btn.classList.remove('bg-black-900', 'text-black-400');
             } else {
-                btn.classList.remove('bg-black-700', 'text-white');
-                btn.classList.add('text-black-400');
+                btn.classList.remove('bg-black-800', 'text-white');
+                btn.classList.add('bg-black-900', 'text-black-400');
             }
         });
 

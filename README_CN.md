@@ -63,23 +63,23 @@ pip install pyinstaller pywebview pillow pyperclip
 ```
 
 #### 构建命令
-本项目使用 **单一统一的 spec 文件** (`OpenCodeTokenMeter.spec`)，支持自动平台检测。
+本项目使用 **单一统一的 spec 文件** (`packaging/OpenCodeTokenMeter.spec`)，支持自动平台检测。
 
 **Windows:**
 ```powershell
-.\build_windows.bat
+.\packaging\build_windows.bat
 ```
 输出：`dist\OpenCodeTokenMeter.exe`
 
 **macOS:**
 ```bash
-./build.sh
+./packaging/build_mac.sh
 ```
 输出：`dist/OpenCode Token Meter.app` 和 `.dmg`
 
 **Linux:**
 ```bash
-./build_linux.sh
+./packaging/build_linux.sh
 ```
 输出：`dist/OpenCode Token Meter` 和 `dist/opencode-token-meter_<version>_<arch>.deb`
 
@@ -97,9 +97,12 @@ opencode-token-meter/
 │   ├── CHANGELOG.md             # 版本历史
 │   └── AGENTS.md                # 开发者指南
 ├── 🔨 构建系统
-│   ├── OpenCodeTokenMeter.spec   # 统一的 PyInstaller 配置
-│   ├── build.sh                 # macOS 构建脚本
-│   └── build_windows.bat        # Windows 构建脚本
+│   └── packaging/               # 构建脚本与 spec
+│       ├── OpenCodeTokenMeter.spec   # 统一的 PyInstaller 配置
+│       ├── build_mac.sh             # macOS 构建脚本
+│       ├── build_linux.sh           # Linux 构建脚本
+│       ├── build_windows.bat        # Windows 构建脚本
+│       └── create_dmg.sh            # macOS DMG 脚本
 └── 📁 App/                      # 源代码
     ├── agent/                   # 消息追踪与数据库逻辑 (Agent, Stats Worker)
     └── webview_ui/              # 基于 Web 的前端 (pywebview)

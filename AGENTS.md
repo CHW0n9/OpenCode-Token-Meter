@@ -60,11 +60,11 @@ Before releasing, verify the following:
 
 ## 4) Build & Packaging
 
-This repository uses a **unified spec file** (`OpenCodeTokenMeter.spec`) for all platforms.
+This repository uses a **unified spec file** (`packaging/OpenCodeTokenMeter.spec`) for all platforms.
 
 - **Build Commands**:
-  - macOS: `./build.sh` (produces `.app` and `.dmg`)
-  - Windows: `.\build_windows.bat` (produces `.exe`)
+  - macOS: `./packaging/build_mac.sh` (produces `.app` and `.dmg`)
+  - Windows: `.\packaging\build_windows.bat` (produces `.exe`)
 - **Cleanup**: `rm -rf build/ dist/`
 
 ---
@@ -133,8 +133,8 @@ The project uses a **single VERSION file** as the source of truth for version nu
    - `App/webview_ui/backend/settings.py` - Sets `DEFAULT_SETTINGS["version"]`
 
 2. **Build Scripts**:
-   - `create_dmg.sh` - Sets DMG filename
-   - `OpenCodeTokenMeter.spec` - Sets `CFBundleShortVersionString` (macOS About dialog)
+   - `packaging/create_dmg.sh` - Sets DMG filename
+   - `packaging/OpenCodeTokenMeter.spec` - Sets `CFBundleShortVersionString` (macOS About dialog)
 
 3. **Documentation** (Manual Update Required):
    - `README.md` - Update download links
@@ -160,9 +160,9 @@ When releasing a new version:
 
 4. **Build and Test**:
    ```bash
-   ./build.sh  # macOS
+   ./packaging/build_mac.sh  # macOS
    # or
-   .\build_windows.bat  # Windows
+   .\packaging\build_windows.bat  # Windows
    ```
 
 5. **Commit Changes**:

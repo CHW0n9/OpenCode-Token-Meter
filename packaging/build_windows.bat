@@ -2,6 +2,10 @@
 REM Build script for Windows (OpenCode Token Meter)
 REM Uses unified spec file to build single executable
 setlocal enabledelayedexpansion
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..") do set "ROOT_DIR=%%~fI"
+cd /d "%ROOT_DIR%"
+set "SPEC_FILE=packaging\OpenCodeTokenMeter.spec"
 
 echo ========================================
 echo    OpenCode Token Meter Build Script
@@ -128,7 +132,7 @@ set TEMP_LOG=%TEMP%\pyinstaller_build.log
 
 REM Build using the unified spec file with reduced verbosity
 set "PYTHONWARNINGS=ignore:pkg_resources is deprecated as an API:UserWarning"
-pyinstaller --clean --noconfirm --log-level=ERROR OpenCodeTokenMeter.spec > "%TEMP_LOG%" 2>&1
+pyinstaller --clean --noconfirm --log-level=ERROR "%SPEC_FILE%" > "%TEMP_LOG%" 2>&1
 set "PYTHONWARNINGS="
 
 if errorlevel 1 (

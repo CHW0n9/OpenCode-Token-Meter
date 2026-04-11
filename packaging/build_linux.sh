@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
 DIST_DIR="$ROOT_DIR/dist"
 PACKAGING_DIR="$ROOT_DIR/packaging/linux"
+SPEC_FILE="$ROOT_DIR/packaging/OpenCodeTokenMeter.spec"
 TAILWIND_DIR="$ROOT_DIR/App/webview_ui/web"
 APP_NAME="OpenCode Token Meter"
 PKG_NAME="opencode-token-meter"
@@ -96,7 +97,7 @@ echo -e " - Cleaned"
 echo -e "\n${BLUE}[4/5] Building application...${NC}"
 
 TEMP_LOG=$(mktemp)
-"$PYTHON" -m PyInstaller --clean --noconfirm --log-level=ERROR OpenCodeTokenMeter.spec > "$TEMP_LOG" 2>&1 &
+"$PYTHON" -m PyInstaller --clean --noconfirm --log-level=ERROR "$SPEC_FILE" > "$TEMP_LOG" 2>&1 &
 PID=$!
 
 # Spinner

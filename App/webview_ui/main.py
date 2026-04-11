@@ -29,6 +29,7 @@ from agent.logger import log_info, log_warn, log_error, log_debug
 
 NAV_FILE = os.path.join(BASE_DIR, "nav.json")
 PID_FILE = os.path.join(BASE_DIR, "webview.pid")
+WINDOW_CHROME_HEX = "#1a1a1a"
 
 # Event to signal when webview app is ready to receive navigation commands
 app_ready_event = threading.Event()
@@ -100,7 +101,7 @@ def create_window(api, debug=False, initial_page="dashboard"):
         resizable=True,
         fullscreen=False,
         hidden=False,
-        background_color="#171717",  # Dark background to prevent white flash
+        background_color=WINDOW_CHROME_HEX,  # Match top banner tone
     )
 
     return window
@@ -134,8 +135,12 @@ def apply_windows_titlebar_color(window):
         DWMWA_CAPTION_COLOR = 35  # Windows 11 Build 22000+
         DWMWA_TEXT_COLOR = 36  # Windows 11 Build 22000+
 
-        # #171717 is RGB(23, 23, 23) -> COLORREF is 0x00bbggrr
-        bg_color = 0x17 | (0x17 << 8) | (0x17 << 16)
+        # Convert #RRGGBB to COLORREF (0x00bbggrr)
+        hex_color = WINDOW_CHROME_HEX.lstrip("#")
+        red = int(hex_color[0:2], 16)
+        green = int(hex_color[2:4], 16)
+        blue = int(hex_color[4:6], 16)
+        bg_color = red | (green << 8) | (blue << 16)
 
         # 1. Enable Dark Mode for title bar (Windows 10+)
         value = ctypes.c_int(1)
@@ -160,7 +165,7 @@ def apply_windows_titlebar_color(window):
         # 2. Change Caption Color and Text Color (Windows 11+)
         try:
             bg_color_c = ctypes.c_int(bg_color)
-            # Set background color to #171717
+            # Set caption color to match banner tone
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
                 hwnd,
                 DWMWA_CAPTION_COLOR,

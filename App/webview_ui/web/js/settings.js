@@ -6,6 +6,15 @@ class SettingsManager {
         this.isRendering = false; // // Flag to prevent save button trigger during render
         this.expandedProviders = new Set();
         this.addModelDraft = null;
+        this.tokenUnitMultipliers = {
+            '1': 1,
+            'K': 1_000,
+            'M': 1_000_000,
+            'B': 1_000_000_000,
+            '1K': 1_000,
+            '1M': 1_000_000,
+            '1B': 1_000_000_000,
+        };
     }
 
     hasUnsavedChanges() {
@@ -93,8 +102,12 @@ class SettingsManager {
 
     setupCustomSelects() {
         if (window.customSelectManager) {
-            window.customSelectManager.initSelectIds(['timezone-select', 'default-scope-select']);
-            window.customSelectManager.syncIds(['timezone-select', 'default-scope-select']);
+            const ids = [
+                'timezone-select',
+                'default-scope-select',
+            ];
+            window.customSelectManager.initSelectIds(ids);
+            window.customSelectManager.syncIds(ids);
         }
     }
 
@@ -127,9 +140,9 @@ class SettingsManager {
         }
 
         // Input field listeners
-        this.bindInput('daily-tokens', 'thresholds.daily_tokens', parseInt);
+        this.bindTokenThresholdInput('daily-tokens', 'daily-tokens-unit', 'thresholds.daily_tokens');
         this.bindInput('daily-cost', 'thresholds.daily_cost', parseFloat);
-        this.bindInput('monthly-tokens', 'thresholds.monthly_tokens', parseInt);
+        this.bindTokenThresholdInput('monthly-tokens', 'monthly-tokens-unit', 'thresholds.monthly_tokens');
         this.bindInput('monthly-cost', 'thresholds.monthly_cost', parseFloat);
 
         // Timezone selector
@@ -189,6 +202,83 @@ class SettingsManager {
         // Standard UX: keep formatted, strip when parsing.
     }
 
+    getTokenUnitMultiplier(unit) {
+        return this.tokenUnitMultipliers[unit] || 1;
+    }
+
+    formatTokenDisplayValue(value) {
+        if (value === undefined || value === null || value === '') return '';
+        const numeric = Number(value);
+        if (Number.isNaN(numeric)) return '';
+        if (Number.isInteger(numeric)) return numeric.toLocaleString();
+        return numeric.toLocaleString(undefined, { maximumFractionDigits: 3 });
+    }
+
+    splitTokenThreshold(rawValue) {
+        const numeric = Number(rawValue);
+        if (!Number.isFinite(numeric)) {
+            return { value: '', unit: '1' };
+        }
+        if (numeric === 0) {
+            return { value: 0, unit: '1' };
+        }
+        if (numeric < 0) {
+            return { value: '', unit: '1' };
+        }
+
+        const absValue = Math.abs(numeric);
+        if (absValue >= 1_000_000_000) {
+            return { value: numeric / 1_000_000_000, unit: 'B' };
+        }
+        if (absValue >= 1_000_000) {
+            return { value: numeric / 1_000_000, unit: 'M' };
+        }
+        if (absValue >= 1_000) {
+            return { value: numeric / 1_000, unit: 'K' };
+        }
+        return { value: numeric, unit: '1' };
+    }
+
+    bindTokenThresholdInput(valueInputId, unitSelectId, settingPath) {
+        const valueInput = document.getElementById(valueInputId);
+        const unitSelect = document.getElementById(unitSelectId);
+        if (!valueInput || !unitSelect) return;
+
+        const updateFromUi = () => {
+            const rawText = valueInput.value.replace(/,/g, '').trim();
+            if (rawText === '') {
+                this.setNestedValue(this.settings, settingPath, '');
+                this.showSaveButton();
+                return;
+            }
+
+            const numericValue = Number(rawText);
+            if (Number.isNaN(numericValue)) {
+                this.showSaveButton();
+                return;
+            }
+
+            const multiplier = this.getTokenUnitMultiplier(unitSelect.value);
+            const normalized = Math.round(numericValue * multiplier);
+            this.setNestedValue(this.settings, settingPath, normalized);
+            this.showSaveButton();
+        };
+
+        valueInput.addEventListener('input', updateFromUi);
+        valueInput.addEventListener('blur', () => {
+            const rawText = valueInput.value.replace(/,/g, '').trim();
+            if (rawText === '') return;
+            const numericValue = Number(rawText);
+            if (!Number.isNaN(numericValue)) {
+                valueInput.value = this.formatTokenDisplayValue(numericValue);
+            }
+        });
+
+        unitSelect.addEventListener('change', () => {
+            updateFromUi();
+        });
+    }
+
     getNestedValue(obj, path) {
         return path.split('.').reduce((current, key) => current?.[key], obj);
     }
@@ -220,8 +310,11 @@ class SettingsManager {
         };
 
         const dailyTokens = document.getElementById('daily-tokens');
-        if (dailyTokens) {
-            dailyTokens.value = formatNumber(this.settings.thresholds?.daily_tokens);
+        const dailyTokensUnit = document.getElementById('daily-tokens-unit');
+        if (dailyTokens && dailyTokensUnit) {
+            const normalized = this.splitTokenThreshold(this.settings.thresholds?.daily_tokens);
+            dailyTokens.value = this.formatTokenDisplayValue(normalized.value);
+            dailyTokensUnit.value = normalized.unit;
         }
 
         const dailyCost = document.getElementById('daily-cost');
@@ -230,8 +323,11 @@ class SettingsManager {
         }
 
         const monthlyTokens = document.getElementById('monthly-tokens');
-        if (monthlyTokens) {
-            monthlyTokens.value = formatNumber(this.settings.thresholds?.monthly_tokens);
+        const monthlyTokensUnit = document.getElementById('monthly-tokens-unit');
+        if (monthlyTokens && monthlyTokensUnit) {
+            const normalized = this.splitTokenThreshold(this.settings.thresholds?.monthly_tokens);
+            monthlyTokens.value = this.formatTokenDisplayValue(normalized.value);
+            monthlyTokensUnit.value = normalized.unit;
         }
 
         const monthlyCost = document.getElementById('monthly-cost');
@@ -344,14 +440,14 @@ class SettingsManager {
             const chevronIcon = `<svg class="w-4 h-4 text-black-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
 
             const providerRow = document.createElement('tr');
-            providerRow.className = 'border-b border-black-700 hover:bg-black-800/50 cursor-pointer group transition-colors';
+            providerRow.className = 'bg-black-900/30 cursor-pointer group transition-colors';
             providerRow.setAttribute('data-provider-toggle', providerKey);
             providerRow.innerHTML = `
-                <td colspan="6" class="px-4 py-3">
+                <td colspan="6" class="px-4 py-2.5">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             ${chevronIcon}
-                            <span class="font-bold text-white group-hover:text-blue-400 transition-colors">${this.escapeHtml(provider)}</span>
+                            <span class="font-bold text-white transition-colors">${this.escapeHtml(provider)}</span>
                         </div>
                         <span class="text-xs text-black-400">${models.length} models</span>
                     </div>
@@ -368,7 +464,7 @@ class SettingsManager {
                 const deleteIcon = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
 
                 const tr = document.createElement('tr');
-                tr.className = 'border-b border-black-700 hover:bg-black-800/50 group';
+                tr.className = 'group';
 
                 const originalPricing = this.originalSettings.prices?.models?.[item.id] || this.pricingCatalog.models?.[item.id];
                 const currentPricing = this.settings.prices.models[item.id] || item.pricing;
@@ -391,24 +487,24 @@ class SettingsManager {
                        </div>`;
                 }
 
-                const inputClass = "bg-gray-800 border border-black-700 text-white text-base rounded px-2 py-1.5 w-24 text-right focus:border-white focus:outline-none transition-colors";
+                const inputClass = "bg-gray-800 border border-black-700 text-white text-base rounded-lg px-2 py-1.5 w-24 text-right focus:border-white focus:outline-none transition-colors";
 
                 tr.innerHTML = `
-                    <td class="px-[3.5rem] py-3 align-middle font-medium text-white">${modelNameHtml}</td>
-                    <td class="px-4 py-3 align-middle text-right">
+                    <td class="px-[3.5rem] py-2.5 align-middle font-medium text-white">${modelNameHtml}</td>
+                    <td class="px-4 py-2.5 align-middle text-right">
                         ${this.renderNumberInput(item.pricing.input || 0, '0.5', inputClass, `data-model="${this.escapeHtml(item.id)}" data-field="input"`)}
                     </td>
-                    <td class="px-4 py-3 align-middle text-right">
+                    <td class="px-4 py-2.5 align-middle text-right">
                         ${this.renderNumberInput(item.pricing.output || 0, '0.5', inputClass, `data-model="${this.escapeHtml(item.id)}" data-field="output"`)}
                     </td>
-                    <td class="px-4 py-3 align-middle text-right">
+                    <td class="px-4 py-2.5 align-middle text-right">
                         ${this.renderNumberInput(item.pricing.caching || 0, '0.05', inputClass, `data-model="${this.escapeHtml(item.id)}" data-field="caching"`)}
                     </td>
-                    <td class="px-4 py-3 align-middle text-right">
+                    <td class="px-4 py-2.5 align-middle text-right">
                         ${this.renderNumberInput(item.pricing.request || 0, '0.04', inputClass, `data-model="${this.escapeHtml(item.id)}" data-field="request"`)}
                     </td>
-                    <td class="px-4 py-3 align-middle text-center">
-                        <div class="flex items-center justify-center gap-1" style="height: 2.5rem;">
+                    <td class="px-4 py-2.5 align-middle text-center">
+                        <div class="flex items-center justify-center gap-1" style="height: 2.1rem;">
                             ${isModified ? `
                                 <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-save-btn inline-flex items-center justify-center leading-none" title="Save changes" data-model="${this.escapeHtml(item.id)}">${confirmIcon}</button>
                                 <button class="p-1.5 hover:bg-black-700 rounded transition-colors inline-discard-btn inline-flex items-center justify-center leading-none" title="Discard changes" data-model="${this.escapeHtml(item.id)}">${cancelIcon}</button>
@@ -628,35 +724,35 @@ class SettingsManager {
 
         const tr = document.createElement('tr');
         tr.id = 'add-model-row';
-        tr.className = 'border-b border-black-700 bg-black-800/80';
+        tr.className = 'bg-black-800/80';
 
-        const inputClass = "bg-black-900 border border-black-700 text-white text-base rounded px-2 py-1.5 focus:border-white focus:outline-none transition-colors";
-        const numberInputClass = "bg-black-900 border border-black-700 text-white text-base rounded px-2 py-1.5 w-24 text-right focus:border-white focus:outline-none transition-colors";
+        const inputClass = "bg-black-900 border border-black-700 text-white text-base rounded-lg px-2 py-1.5 focus:border-white focus:outline-none transition-colors";
+        const numberInputClass = "bg-black-900 border border-black-700 text-white text-base rounded-lg px-2 py-1.5 w-24 text-right focus:border-white focus:outline-none transition-colors";
 
         const confirmIcon = `<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
         const cancelIcon = `<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
 
         tr.innerHTML = `
-            <td class="px-[3.5rem] py-3 align-middle">
+            <td class="px-[3.5rem] py-2.5 align-middle">
                 <div class="flex items-center gap-2">
                     <input type="text" id="new_provider_id" placeholder="Provider" class="${inputClass}" style="flex: 0 0 30%; width: 30%;" value="${this.escapeHtml(this.addModelDraft.provider)}">
                     <input type="text" id="new_model_id" placeholder="Model ID" class="${inputClass}" style="flex: 0 0 70%; width: 70%;" value="${this.escapeHtml(this.addModelDraft.model)}">
                 </div>
             </td>
-            <td class="px-4 py-3 align-middle text-right">
+            <td class="px-4 py-2.5 align-middle text-right">
                 ${this.renderNumberInput(this.addModelDraft.input, '0.01', numberInputClass, 'id="new_input_cost" placeholder="0.00"')}
             </td>
-            <td class="px-4 py-3 align-middle text-right">
+            <td class="px-4 py-2.5 align-middle text-right">
                 ${this.renderNumberInput(this.addModelDraft.output, '0.01', numberInputClass, 'id="new_output_cost" placeholder="0.00"')}
             </td>
-            <td class="px-4 py-3 align-middle text-right">
+            <td class="px-4 py-2.5 align-middle text-right">
                 ${this.renderNumberInput(this.addModelDraft.caching, '0.01', numberInputClass, 'id="new_cache_cost" placeholder="0.00"')}
             </td>
-            <td class="px-4 py-3 align-middle text-right">
+            <td class="px-4 py-2.5 align-middle text-right">
                 ${this.renderNumberInput(this.addModelDraft.request, '0.0001', numberInputClass, 'id="new_request_cost" placeholder="0.00"')}
             </td>
-            <td class="px-4 py-3 align-middle text-center">
-                <div class="flex items-center justify-center gap-2" style="height: 2.5rem;">
+            <td class="px-4 py-2.5 align-middle text-center">
+                <div class="flex items-center justify-center gap-2" style="height: 2.1rem;">
                     <button id="confirm-add-btn" class="p-1 hover:bg-black-700 rounded transition-colors" title="Add Model">${confirmIcon}</button>
                     <button id="cancel-add-btn" class="p-1 hover:bg-black-700 rounded transition-colors" title="Cancel">${cancelIcon}</button>
                 </div>

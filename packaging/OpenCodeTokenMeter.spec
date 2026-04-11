@@ -11,7 +11,8 @@ from PyInstaller.utils.hooks import collect_submodules
 block_cipher = None
 
 # Get absolute paths
-project_root = os.path.dirname(os.path.abspath(SPEC))
+spec_dir = os.path.dirname(os.path.abspath(SPEC))
+project_root = os.path.dirname(spec_dir)
 app_dir = os.path.join(project_root, 'App')
 webview_ui_dir = os.path.join(app_dir, 'webview_ui')
 agent_dir = os.path.join(app_dir, 'agent')
